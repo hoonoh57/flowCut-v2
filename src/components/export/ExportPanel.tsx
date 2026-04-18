@@ -119,6 +119,12 @@ export const ExportPanel: React.FC = () => {
           fadeIn: c.fadeIn,
           fadeOut: c.fadeOut,
           volumeEnvelope: c.volumeEnvelope || null,
+          x: c.x,
+          y: c.y,
+          clipWidth: c.width,
+          clipHeight: c.height,
+          opacity: c.opacity,
+          trackId: c.trackId,
         }));
 
       const resp = await fetch(`${SERVER_URL}/api/export`, {

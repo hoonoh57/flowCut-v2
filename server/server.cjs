@@ -73,6 +73,19 @@ app.get('/api/progress', (req, res) => {
   req.on('close', () => { progressClients = progressClients.filter(c => c !== res); });
 });
 
+function getClipRect(clip, pw, ph, ow, oh) {
+  // Scale from project coords to output coords
+  const sx = ow / pw, sy = oh / ph;
+  let cx = clip.x || 0, cy = clip.y || 0;
+  let cw = clip.clipWidth || pw, ch = clip.clipHeight || ph;
+  // Auto-fit: if x=0, y=0 and size differs from project, center-fit
+  const isDefault = cx === 0 && cy === 0 && (cw === pw || cw === 1920) && (ch === ph || ch === 1080);
+  if (isDefault && (clip.type === 'video' || clip.type === 'image')) {
+    return { x: 0, y: 0, w: ow, h: oh, fullscreen: true };
+  }
+  // Custom position/size - scale to output
+  return { x: Math.round(cx * sx), y: Math.round(cy * sy), w: Math.round(cw * sx), h: Math.round(ch * sy), fullscreen: false };
+}
 function sendProgress(data) {
   progressClients.forEach(c => c.write('data: ' + JSON.stringify(data) + '\n\n'));
 }
@@ -158,24 +171,27 @@ app.post('/api/export', async (req, res) => {
       const durSec = (clip.durationFrames / fps).toFixed(3);
       const endSec = ((clip.startFrame + clip.durationFrames) / fps).toFixed(3);
 
-      // Scale input to output size
+      // Scale input to clip's actual size and position
+      const rect = getClipRect(clip, projectWidth, projectHeight, ow, oh);
       const scaledLabel = 'sc' + overlayCount;
       let scaleFilter = '[' + idx + ':v]';
 
-      if (clip.type === 'image') {
-        scaleFilter += 'scale=' + ow + ':' + oh + ':force_original_aspect_ratio=decrease,pad=' + ow + ':' + oh + ':(ow-iw)/2:(oh-ih)/2:black';
-      } else {
+      if (rect.fullscreen) {
         scaleFilter += 'scale=' + ow + ':' + oh + ':flags=lanczos:force_original_aspect_ratio=decrease,pad=' + ow + ':' + oh + ':(ow-iw)/2:(oh-ih)/2:black';
-        if (clip.speed && clip.speed !== 1) {
-          scaleFilter += ',setpts=' + (1/clip.speed).toFixed(4) + '*PTS';
-        }
+      } else {
+        scaleFilter += 'scale=' + rect.w + ':' + rect.h + ':flags=lanczos';
+      }
+      if (clip.type !== 'image' && clip.speed && clip.speed !== 1) {
+        scaleFilter += ',setpts=' + (1/clip.speed).toFixed(4) + '*PTS';
       }
       scaleFilter += '[' + scaledLabel + ']';
       filterParts.push(scaleFilter);
 
-      // Overlay on base at correct time
+      // Overlay at clip position
       const ovLabel = 'ov' + overlayCount;
-      const overlayFilter = lastVideo + "[" + scaledLabel + "]overlay=0:0:enable=" + String.fromCharCode(39) + "between(t," + startSec + "," + endSec + ")" + String.fromCharCode(39) + "[" + ovLabel + "]";
+      const ovX = rect.fullscreen ? 0 : rect.x;
+      const ovY = rect.fullscreen ? 0 : rect.y;
+      const overlayFilter = lastVideo + "[" + scaledLabel + "]overlay=" + ovX + ":" + ovY + ":enable=" + String.fromCharCode(39) + "between(t," + startSec + "," + endSec + ")" + String.fromCharCode(39) + "[" + ovLabel + "]";
       filterParts.push(overlayFilter);
 
       lastVideo = '[' + ovLabel + ']';
