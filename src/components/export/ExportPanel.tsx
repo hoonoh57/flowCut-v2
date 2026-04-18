@@ -49,8 +49,7 @@ export const ExportPanel: React.FC = () => {
   const [quality, setQuality] = useState<QualityLevel>('medium');
   const [format, setFormat] = useState<ExportFormat>('mp4');
   const [fileName, setFileName] = useState('flowcut_export');
-  const [includeAudio,
-          tracks: tracks, setIncludeAudio] = useState(true);
+  const [includeAudio, setIncludeAudio] = useState(true);
   const [statusMsg, setStatusMsg] = useState('');
   const [serverOnline, setServerOnline] = useState(false);
   const [resultPath, setResultPath] = useState('');
