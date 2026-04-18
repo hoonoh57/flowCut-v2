@@ -69,6 +69,8 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 
 const FFMPEG = 'E:\\ffmpeg\\bin\\ffmpeg.exe';
+const FONT_DIR = 'C:/Windows/Fonts';
+const DEFAULT_FONT = FONT_DIR + '/malgun.ttf';  // 맑은 고딕 (Korean support)
 const OUTPUT_DIR = path.join('E:\\2026\\flowcut', 'output');
 const MEDIA_DIR = path.join('E:\\2026\\flowcut', 'media_cache');
 const TEMP_DIR = path.join('E:\\2026\\flowcut', 'temp');
@@ -250,7 +252,8 @@ app.post('/api/export', async (req, res) => {
       const dtLabel = 'dt' + overlayCount;
       // textfile path escaped for filter_complex_script (no shell quoting needed)
       const escapedPath = textFilePath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
-      const dtFilter = lastVideo + 'drawtext=textfile=' + escapedPath + ':x=' + tx + ':y=' + ty + ':fontsize=' + fontSize + ':fontcolor=' + fontColor + ":enable='between(t," + startSec + "," + endSec + ")'[" + dtLabel + ']';
+      const fontPath = DEFAULT_FONT.replace(/:/g, '\\\\:');
+      const dtFilter = lastVideo + 'drawtext=fontfile=' + fontPath + ':textfile=' + escapedPath + ':x=' + tx + ':y=' + ty + ':fontsize=' + fontSize + ':fontcolor=' + fontColor + ":enable='between(t," + startSec + "," + endSec + ")'[" + dtLabel + ']';
       filterParts.push(dtFilter);
 
       lastVideo = '[' + dtLabel + ']';
@@ -303,7 +306,7 @@ app.post('/api/export', async (req, res) => {
       fs.writeFileSync(filterFile, complexFilter, 'utf8');
       console.log('  Filter script: ' + filterFile);
       console.log('  Filter content: ' + complexFilter.substring(0, 500));
-      args.push('-filter_complex_script', filterFile);
+      args.push('-/filter_complex', filterFile);
       args.push('-map', lastVideo);
       if (audioLabel) args.push('-map', '[' + audioLabel + ']');
       else args.push('-an');
@@ -328,7 +331,7 @@ app.post('/api/export', async (req, res) => {
     sendProgress({ status: 'encoding', progress: 5, message: 'Encoding ' + ow + 'x' + oh + ' ' + format.toUpperCase() + ' (' + visualClips.length + ' visual + ' + textClips.length + ' text)...' });
 
     const totalFrames = Math.round(parseFloat(totalDurSec) * fps);
-    const ffProcess = spawn(FFMPEG, args);
+    const ffProcess = spawn(FFMPEG, args, { env: { ...process.env, FONTCONFIG_PATH: '', FONTCONFIG_FILE: '' } });
     let stderrLog = '';
     let lastPct = 0;
 
