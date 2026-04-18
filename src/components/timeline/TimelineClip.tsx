@@ -7,6 +7,7 @@ import { snapToGrid } from '../../engines/SnapEngine';
 import { hasCollision, findNearestFreeStart } from '../../engines/CollisionEngine';
 import { theme } from '../../styles/theme';
 import type { Clip } from '../../types/clip';
+import { getClipPreviewUrl } from '../../utils/mediaResolver';
 
 const HANDLE_WIDTH = 6;
 const MIN_DURATION_FRAMES = 2;
@@ -60,9 +61,28 @@ function useThumbnails(clip: Clip, width: number, thumbH: number): string[] {
     let cancelled = false;
     const thumbW = Math.max(thumbH * 1.6, 40);
     const count = Math.max(1, Math.floor(width / thumbW));
+
+    // --- Image clip: use <img> directly ---
+    if (clip.type === 'image') {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (cancelled) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(thumbW); canvas.height = thumbH;
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        if (!cancelled) setThumbs(Array(count).fill(dataUrl));
+      };
+      img.onerror = () => { if (!cancelled) setThumbs(Array(count).fill(src)); };
+      img.src = src;
+      return () => { cancelled = true; };
+    }
+
+    // --- Video clip: seek through frames ---
     const video = document.createElement('video');
     video.src = src; video.muted = true; video.preload = 'auto'; video.crossOrigin = 'anonymous';
-
     video.onloadeddata = async () => {
       if (cancelled) return;
       const dur = video.duration || 5;
@@ -70,7 +90,6 @@ function useThumbnails(clip: Clip, width: number, thumbH: number): string[] {
       canvas.width = Math.round(thumbW); canvas.height = thumbH;
       const ctx2 = canvas.getContext('2d')!;
       const results: string[] = [];
-
       for (let i = 0; i < count; i++) {
         if (cancelled) break;
         const time = (i / count) * dur;
@@ -83,9 +102,7 @@ function useThumbnails(clip: Clip, width: number, thumbH: number): string[] {
         try {
           ctx2.drawImage(video, 0, 0, canvas.width, canvas.height);
           results.push(canvas.toDataURL('image/jpeg', 0.4));
-        } catch {
-          results.push('');
-        }
+        } catch { results.push(''); }
       }
       if (!cancelled) setThumbs(results);
     };
@@ -94,7 +111,6 @@ function useThumbnails(clip: Clip, width: number, thumbH: number): string[] {
   }, [clip.id, clip.src, clip.previewUrl, width, thumbH, clip.type]);
   return thumbs;
 }
-
 /* ======= COMPONENT ======= */
 interface TimelineClipProps {
   clip: Clip;
@@ -117,6 +133,7 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
   const tracks = useEditorStore(s => s.tracks);
   const snapEnabled = useEditorStore(s => s.snapEnabled);
   const setClips = useEditorStore(s => s.setClips);
+  const mediaItems = useEditorStore(s => s.mediaItems);
 
   const isSelected = selectedIds.includes(clip.id);
   const [hoverEdge, setHoverEdge] = useState<'left' | 'right' | null>(null);
@@ -129,9 +146,9 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
   const isAudio = clip.type === 'audio';
   const isMedia = isVideo || isAudio;
 
-  const thumbZoneH = isVideo ? Math.round(height * 0.65) : 0;
-  const waveZoneH = isVideo ? height - thumbZoneH : (isAudio ? height : 0);
-  const waveTop = isVideo ? thumbZoneH : 0;
+  const thumbZoneH = (isVideo || clip.type === 'image') ? Math.round(height * 0.65) : 0;
+  const waveZoneH = (isVideo || clip.type === 'image') ? height - thumbZoneH : (isAudio ? height : 0);
+  const waveTop = (isVideo || clip.type === 'image') ? thumbZoneH : 0;
 
   const sampleCount = Math.max(10, Math.floor(width / 3));
   const waveform = useWaveform(clip, isMedia ? sampleCount : 0);
@@ -231,7 +248,7 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
       }}
     >
       {/* ===== VIDEO: Thumbnail zone ===== */}
-      {isVideo && thumbnails.length > 0 && (
+      {(isVideo || clip.type === 'image') && thumbnails.length > 0 && (
         <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: thumbZoneH, display: 'flex', overflow: 'hidden', pointerEvents: 'none' }}>
           {thumbnails.map((src, i) => (
             <img key={i} src={src} alt="" style={{
@@ -241,7 +258,7 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
           ))}
         </div>
       )}
-      {isVideo && (
+      {(isVideo || clip.type === 'image') && (
         <div style={{ position: 'absolute', left: 0, top: thumbZoneH, width: '100%', height: 1, background: 'rgba(255,255,255,0.15)', pointerEvents: 'none' }} />
       )}
 
