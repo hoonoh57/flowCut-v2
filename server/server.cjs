@@ -117,7 +117,21 @@ app.post('/api/export', async (req, res) => {
     // Separate visual clips (video + image) and audio clips
     const visualClips = inputFiles
       .filter(f => (f.type === 'video' || f.type === 'image') && f.localPath && fs.existsSync(f.localPath))
-      .sort((a, b) => a.startFrame - b.startFrame);
+      .sort((a, b) => {
+        // Sort by track z-order: lower track number = background = overlay first
+        // Then fullscreen clips before positioned clips (background first)
+        // Then by startFrame
+        const aRect = getClipRect(a, projectWidth, projectHeight, ow, oh);
+        const bRect = getClipRect(b, projectWidth, projectHeight, ow, oh);
+        // Fullscreen (background) clips go first
+        if (aRect.fullscreen && !bRect.fullscreen) return -1;
+        if (!aRect.fullscreen && bRect.fullscreen) return 1;
+        // Then by track id number (lower = background)
+        const aTrackNum = parseInt((a.trackId || '').replace(/\D/g, '') || '0');
+        const bTrackNum = parseInt((b.trackId || '').replace(/\D/g, '') || '0');
+        if (aTrackNum !== bTrackNum) return aTrackNum - bTrackNum;
+        return a.startFrame - b.startFrame;
+      });
     const audioClips = inputFiles
       .filter(f => (f.type === 'audio' || f.type === 'video') && !f.muted && f.localPath && fs.existsSync(f.localPath))
       .sort((a, b) => a.startFrame - b.startFrame);
