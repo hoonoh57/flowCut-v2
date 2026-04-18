@@ -5,6 +5,29 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 
+
+// Convert volumeEnvelope to FFmpeg volume filter expression
+function envelopeToVolumeFilter(envelope, durationSec) {
+  if (!envelope || envelope.length < 2) return null;
+  const sorted = [...envelope].sort((a, b) => a.position - b.position);
+  // Build piecewise linear volume expression using 'if(between(t,...))'
+  const parts = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i], b = sorted[i + 1];
+    const t0 = (a.position * durationSec).toFixed(3);
+    const t1 = (b.position * durationSec).toFixed(3);
+    const v0 = (a.volume / 100).toFixed(3);
+    const v1 = (b.volume / 100).toFixed(3);
+    const dt = (b.position - a.position) * durationSec;
+    if (dt <= 0) continue;
+    // Linear interpolation: v0 + (v1-v0) * (t-t0) / (t1-t0)
+    const slope = ((b.volume - a.volume) / 100 / dt).toFixed(6);
+    parts.push("if(between(t," + t0 + "," + t1 + ")," + v0 + "+" + slope + "*(t-" + t0 + "))");
+  }
+  if (parts.length === 0) return null;
+  // Chain with default fallback
+  return "volume='" + parts.join("+") + "':eval=frame";
+}
 const app = express();
 app.use(cors());
 app.use((req, res, next) => {
@@ -137,7 +160,13 @@ app.post('/api/export', async (req, res) => {
         args.push('-an');
       } else if (includeAudio && !clip.muted) {
         const af = [];
-        if (clip.volume !== undefined && clip.volume !== 100) af.push(`volume=${(clip.volume/100).toFixed(2)}`);
+        // Volume: envelope takes priority over flat volume
+        const envFilter = clip.volumeEnvelope ? envelopeToVolumeFilter(clip.volumeEnvelope, parseFloat(durSec)) : null;
+        if (envFilter) {
+          af.push(envFilter);
+        } else if (clip.volume !== undefined && clip.volume !== 100) {
+          af.push(`volume=${(clip.volume/100).toFixed(2)}`);
+        }
         if (clip.speed && clip.speed !== 1) af.push(`atempo=${Math.max(0.5, Math.min(2, clip.speed))}`);
         if (clip.fadeIn > 0) af.push(`afade=t=in:st=0:d=${(clip.fadeIn/fps).toFixed(2)}`);
         if (clip.fadeOut > 0) {

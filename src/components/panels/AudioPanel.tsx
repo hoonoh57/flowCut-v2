@@ -70,7 +70,7 @@ export const AudioPanel: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ width: 50, fontSize: 10, color: theme.colors.text.muted }}>볼륨</span>
             <input type="range" min={0} max={200} value={selectedClip.volume}
-              onChange={e => dispatch(new UpdateClipCommand(selectedClip.id, { volume: Number(e.target.value) }))}
+              onChange={e => { const v = Number(e.target.value); const env = selectedClip.volumeEnvelope && selectedClip.volumeEnvelope.length >= 2 ? selectedClip.volumeEnvelope.map((p: VolumePoint, i: number) => (i === 0 || i === selectedClip.volumeEnvelope!.length - 1) ? { ...p, volume: v } : p) : [{ position: 0, volume: v }, { position: 1, volume: v }]; dispatch(new UpdateClipCommand(selectedClip.id, { volume: v, volumeEnvelope: env })); }}
               style={{ flex: 1 }} />
             <span style={{ width: 35, fontSize: 10, color: theme.colors.text.secondary, textAlign: 'right' }}>{selectedClip.volume}%</span>
           </div>
