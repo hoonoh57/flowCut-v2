@@ -175,7 +175,7 @@ app.post('/api/export', async (req, res) => {
 
       // Overlay on base at correct time
       const ovLabel = 'ov' + overlayCount;
-      const overlayFilter = lastVideo + '[' + scaledLabel + ']overlay=0:0:enable=''between(t,' + startSec + ',' + endSec + ')''[' + ovLabel + ']';
+      const overlayFilter = lastVideo + "[" + scaledLabel + "]overlay=0:0:enable=" + String.fromCharCode(39) + "between(t," + startSec + "," + endSec + ")" + String.fromCharCode(39) + "[" + ovLabel + "]";
       filterParts.push(overlayFilter);
 
       lastVideo = '[' + ovLabel + ']';
