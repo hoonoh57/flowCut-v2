@@ -240,8 +240,6 @@ app.post('/api/export', async (req, res) => {
       const textContent = clip.text || clip.name || 'Text';
       const textFilePath = path.join(TEMP_DIR, 'text_' + clip.clipId + '.txt');
       fs.writeFileSync(textFilePath, textContent, 'utf8');
-      // Escape path for FFmpeg filter: backslashes and colons
-      const escapedPath = textFilePath.replace(/\\/g, '/').replace(/:/g, '\\\\\\\\:');
 
       const sx = ow / projectWidth, sy = oh / projectHeight;
       const tx = Math.round((clip.x || 0) * sx);
@@ -250,8 +248,9 @@ app.post('/api/export', async (req, res) => {
       const fontColor = (clip.fontColor || '#ffffff').replace('#', '0x');
 
       const dtLabel = 'dt' + overlayCount;
-      // Use textfile instead of text= to avoid escaping issues
-      const dtFilter = lastVideo + 'drawtext=textfile=' + escapedPath + ':x=' + tx + ':y=' + ty + ':fontsize=' + fontSize + ':fontcolor=' + fontColor + ':enable=' + String.fromCharCode(39) + 'between(t\\,' + startSec + '\\,' + endSec + ')' + String.fromCharCode(39) + '[' + dtLabel + ']';
+      // textfile path escaped for filter_complex_script (no shell quoting needed)
+      const escapedPath = textFilePath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
+      const dtFilter = lastVideo + 'drawtext=textfile=' + escapedPath + ':x=' + tx + ':y=' + ty + ':fontsize=' + fontSize + ':fontcolor=' + fontColor + ":enable='between(t," + startSec + "," + endSec + ")'[" + dtLabel + ']';
       filterParts.push(dtFilter);
 
       lastVideo = '[' + dtLabel + ']';
@@ -299,7 +298,12 @@ app.post('/api/export', async (req, res) => {
     // --- ASSEMBLE FFmpeg command ---
     const complexFilter = filterParts.join(';');
     if (complexFilter) {
-      args.push('-filter_complex', complexFilter);
+      // Write filter to file to avoid shell quoting issues
+      const filterFile = path.join(TEMP_DIR, 'filter_' + Date.now() + '.txt');
+      fs.writeFileSync(filterFile, complexFilter, 'utf8');
+      console.log('  Filter script: ' + filterFile);
+      console.log('  Filter content: ' + complexFilter.substring(0, 500));
+      args.push('-filter_complex_script', filterFile);
       args.push('-map', lastVideo);
       if (audioLabel) args.push('-map', '[' + audioLabel + ']');
       else args.push('-an');
