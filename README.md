@@ -1,73 +1,60 @@
-# React + TypeScript + Vite
+# FlowCut
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Browser-based video editor built with React + TypeScript + Vite.
+Server-side export via FFmpeg.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Multi-track timeline (video, audio, image, text)
+- Drag-and-drop media import
+- Real-time preview with canvas rendering
+- Volume envelope editing (wavesurfer.js pattern)
+- Fade in/out, effects, transitions
+- FFmpeg-based export (mp4/webm/mov)
+- Undo/redo command system
+- Snap-to-grid and collision detection
+- Keyboard shortcuts
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React 18, TypeScript, Zustand, Vite
+- **Backend**: Express.js (media server + FFmpeg export)
+- **Export**: FFmpeg (local installation required)
 
-## Expanding the ESLint configuration
+## Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 18+
+- FFmpeg installed and in PATH (or update server/server.cjs)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Getting Started
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+npm install
+npm run dev
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Frontend: http://localhost:5173
+Backend: http://localhost:3456
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Project Structure
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+src/components/ - React UI (export, layout, panels, preview, timeline)
+src/engines/ - Core engines (FFmpeg, Render, Snap, Collision)
+src/hooks/ - Custom hooks (media import, playback, shortcuts)
+src/stores/ - Zustand store + command pattern (undo/redo)
+src/types/ - TypeScript interfaces (Clip, Track, Media)
+src/utils/ - Utilities (mediaResolver, clipFactory, uid)
+server/ - Express backend (upload, export, media serving)
+docs/ - Data flow documentation
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Key Architecture
+
+- mediaResolver.ts: Centralized URL/path lookup
+- clipFactory.ts: Centralized clip creation
+- ClipEnvelope.tsx: Independent volume envelope (wavesurfer.js pattern)
+- createDragHandler.ts: Document-level pointer tracking
+- Command pattern: All mutations via commands for undo/redo
+
+See docs/data-flow.md for the complete pipeline.
+
+## License
+
+MIT
