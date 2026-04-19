@@ -35,10 +35,24 @@ export const TextPanel: React.FC = () => {
     checkOllamaHealth().then(setAiAvailable).catch(() => setAiAvailable(false));
   }, []);
 
+  const addTrack = useEditorStore((s) => s.addTrack);
+
   const addPresetClip = (preset: TextPreset, text?: string) => {
     let tTrack = tracks.find(t => t.type === 'text');
-    if (!tTrack) tTrack = tracks.find(t => t.type === 'video');
-    if (!tTrack) return;
+    if (!tTrack) {
+      const newTrack = {
+        id: 't' + Date.now(),
+        name: 'Text ' + (tracks.filter(t => t.type === 'text').length + 1),
+        type: 'text' as const,
+        order: 300,
+        height: 40,
+        color: '#f59e0b',
+        locked: false,
+        visible: true,
+      };
+      addTrack(newTrack);
+      tTrack = newTrack;
+    }
     const clip = createTextClipFromPreset(
       preset.id, tTrack.id, currentFrame, fps, text || undefined
     );

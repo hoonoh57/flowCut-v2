@@ -11,7 +11,7 @@ interface TrackLabelProps {
 export const TrackLabel: React.FC<TrackLabelProps> = ({ track }) => {
   const setTracks = useEditorStore((s) => s.setTracks);
   const tracks = useEditorStore((s) => s.tracks);
-  const trackH = getTrackHeight(track.type);
+  const trackH = getTrackHeight(track.type, track.height);
 
   const typeColor = track.type === 'video'
     ? theme.colors.track.video

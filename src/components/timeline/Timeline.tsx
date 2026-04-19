@@ -34,7 +34,7 @@ export const Timeline: React.FC = () => {
     return (b.order ?? 0) - (a.order ?? 0);
   });
 
-  const totalHeight = sortedTracks.reduce((sum, t) => sum + getTrackHeight(t.type), 0);
+  const totalHeight = sortedTracks.reduce((sum, t) => sum + getTrackHeight(t.type, t.height), 0);
   const maxClipFrame = clips.reduce((mx, c) => Math.max(mx, c.startFrame + c.durationFrames), 0);
   const totalWidth = Math.max(3000, ((maxClipFrame / fps) + 30) * 100 * zoom);
   const pxPerFrame = (100 * zoom) / fps;

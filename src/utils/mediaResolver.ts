@@ -7,6 +7,30 @@ import type { MediaItem } from '../stores/slices/mediaSlice';
  * Never access clip.src, clip.previewUrl, or clip.localPath directly.
  */
 
+
+/** Refresh object URL from File reference if blob URL is stale */
+function refreshObjectUrl(media: MediaItem): string {
+  if (media.objectUrl) {
+    // Quick check: if it's a server URL (http), always valid
+    if (media.objectUrl.startsWith('http')) return media.objectUrl;
+    // Blob URLs become invalid after page reload
+    // Re-create from File if available
+  }
+  if (media.file) {
+    const newUrl = URL.createObjectURL(media.file);
+    media.objectUrl = newUrl; // Update in-place (reactive stores will pick up)
+    return newUrl;
+  }
+  // Fallback to server URL
+  if (media.url && media.url.startsWith('http')) return media.url;
+  if (media.localPath) {
+    // Try to construct server URL from localPath
+    const fileName = media.localPath.split(/[\/]/).pop() || '';
+    return 'http://localhost:3456/media/' + fileName;
+  }
+  return '';
+}
+
 /** Get the preview/playback URL for a clip */
 export function getClipPreviewUrl(clip: Clip, mediaItems?: MediaItem[]): string {
   // 1. Direct src on clip
@@ -16,7 +40,7 @@ export function getClipPreviewUrl(clip: Clip, mediaItems?: MediaItem[]): string 
   // 3. Lookup from mediaItems via mediaId
   if (clip.mediaId && mediaItems) {
     const media = mediaItems.find(m => m.id === clip.mediaId);
-    if (media) return media.objectUrl || media.url || '';
+    if (media) return refreshObjectUrl(media);
   }
   return '';
 }

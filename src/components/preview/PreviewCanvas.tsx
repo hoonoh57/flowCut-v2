@@ -103,12 +103,43 @@ const ClipMedia: React.FC<{ clip: Clip; isPlaying: boolean; currentFrame: number
   }, [isPlaying, targetTime, clip.speed]);
 
   if (clip.type === 'video') {
-    return <video ref={videoRef} src={getClipPreviewUrl(clip, mediaItems)} muted={clip.muted}
-      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />;
+    const vidSrc = getClipPreviewUrl(clip, mediaItems);
+    return vidSrc ? (
+      <video ref={videoRef} src={vidSrc} muted={clip.muted}
+        onError={(e) => {
+          const m = mediaItems?.find(mi => mi.id === clip.mediaId);
+          if (m?.localPath) {
+            const fn = m.localPath.split(/[\\/]/).pop() || '';
+            (e.target as HTMLVideoElement).src = 'http://localhost:3456/media/' + fn;
+          }
+        }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+    ) : (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#1a1a2e', color: '#666', fontSize: 12 }}>
+        {clip.name || 'Video'}
+      </div>
+    );
   }
   if (clip.type === 'image') {
-    return <img src={getClipPreviewUrl(clip, mediaItems)} alt={clip.name}
-      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />;
+    const imgSrc = getClipPreviewUrl(clip, mediaItems);
+    return imgSrc ? (
+      <img src={imgSrc} alt={clip.name}
+        onError={(e) => {
+          // Try reconstructing URL from localPath
+          const m = mediaItems?.find(mi => mi.id === clip.mediaId);
+          if (m?.localPath) {
+            const fn = m.localPath.split(/[\\/]/).pop() || '';
+            (e.target as HTMLImageElement).src = 'http://localhost:3456/media/' + fn;
+          }
+        }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+    ) : (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#1a1a2e', color: '#666', fontSize: 12 }}>
+        {clip.name || 'Image'}
+      </div>
+    );
   }
   if (clip.type === 'text') {
     return <TextCanvasPreview clip={clip} />;

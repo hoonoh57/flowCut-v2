@@ -11,7 +11,8 @@ const TRACK_HEIGHT_VIDEO = 80;
 const TRACK_HEIGHT_AUDIO = 60;
 const TRACK_HEIGHT_TEXT = 40;
 
-export function getTrackHeight(trackType: string): number {
+export function getTrackHeight(trackType: string, trackHeight?: number): number {
+  if (trackHeight && trackHeight > 0) return trackHeight;
   if (trackType === 'video') return TRACK_HEIGHT_VIDEO;
   if (trackType === 'audio') return TRACK_HEIGHT_AUDIO;
   return TRACK_HEIGHT_TEXT;
@@ -36,7 +37,7 @@ export const TrackLane: React.FC<TrackLaneProps> = ({ track, trackIndex, totalWi
   );
 
   const pxPerFrame = (100 * zoom) / fps;
-  const trackH = getTrackHeight(track.type);
+  const trackH = getTrackHeight(track.type, track.height);
 
   const onClickLane = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) clearSelection();
