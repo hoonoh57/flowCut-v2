@@ -172,10 +172,8 @@ async function silentFetch(url: string, timeout = 2000): Promise<Response | null
 }
 
 export async function checkOllamaHealth(): Promise<boolean> {
-  try {
-    const resp = await fetch(config.ollamaUrl + '/api/tags', { signal: AbortSignal.timeout(3000) });
-    return resp.ok;
-  } catch { return false; }
+  const resp = await silentFetch(config.ollamaUrl + '/api/tags', 3000);
+  return resp !== null && resp.ok;
 }
 
 export async function checkComfyUIHealth(): Promise<boolean> {

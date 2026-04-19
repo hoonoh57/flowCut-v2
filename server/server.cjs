@@ -345,13 +345,6 @@ app.post('/api/export', async (req, res) => {
       // Y: vertically center text within clip box
       if (clipH > 0) {
         dtParts.push('y=' + Math.round(ty + clipH/2) + '-text_h/2');
-      } else {
-        // Y: vertically center text within clip box
-      if (clipH > 0) {
-        dtParts.push('y=' + Math.round(ty + clipH/2) + '-text_h/2');
-      } else {
-        dtParts.push('y=' + ty);
-      }
       }
 
       // Background box
@@ -396,6 +389,7 @@ app.post('/api/export', async (req, res) => {
       filterParts.push(dtFilter);
 
       console.log('  [TEXT] "' + textContent.substring(0,30) + '" pos=(' + tx + ',' + ty + ') clipSize=' + clipW + 'x' + clipH + ' font=' + fontSize + 'px bg=' + (bgOpacity > 0 ? 'yes' : 'no') + ' border=' + ((clip.borderWidth||0) > 0 ? 'yes' : 'no'));
+      // second log removed
       console.log('  [TEXT] "' + textContent.substring(0,30) + '" pos=(' + tx + ',' + ty + ') clipSize=' + clipW + 'x' + clipH + ' font=' + fontSize + 'px bg=' + (bgOpacity > 0 ? 'yes' : 'no') + ' border=' + ((clip.borderWidth||0) > 0 ? 'yes' : 'no'));
       lastVideo = '[' + dtLabel + ']';
       overlayCount++;
@@ -592,7 +586,7 @@ app.post('/api/script', async (req, res) => {
 
       case 'listPresets': {
         // Return all available preset IDs
-        const presetFile = path.join(root, 'src/presets/textPresets.ts');
+        const presetFile = path.join(__dirname, 'src/presets/textPresets.ts');
         const content = fs.readFileSync(presetFile, 'utf8');
         const ids = [];
         const re = /id: '([^']+)'/g;
