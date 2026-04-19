@@ -283,25 +283,23 @@ app.post('/api/export', async (req, res) => {
         const endSec2 = ((clip.startFrame + clip.durationFrames) / fps).toFixed(3);
         console.log('[TEXT-IMG] Using pre-rendered PNG:', clip.renderedImagePath);
         
-        const oW = ow || projectWidth;
-        const oH = oh || projectHeight;
-        const scX = oW / projectWidth;
-        const scY = oH / projectHeight;
+        const scX = ow / projectWidth;
+        const scY = oh / projectHeight;
         const cw = Math.round((clip.clipWidth || clip.width || 800) * scX);
         const ch = Math.round((clip.clipHeight || clip.height || 200) * scY);
         const cx = Math.round((clip.x || 0) * scX);
         const cy = Math.round((clip.y || 0) * scY);
         
         // Add image input
-        ffmpegArgs.push('-loop', '1', '-t', String(endSec2 - startSec2), '-i', clip.renderedImagePath);
-        const imgInputIdx = inputIndex++;
+        args.push('-loop', '1', '-t', String(endSec2 - startSec2), '-i', clip.renderedImagePath);
+        const imgInputIdx = inputIdx++;
         
         const tiLabel = 'ti' + overlayCount;
         const toLabel = 'to' + overlayCount;
-        const lastLabel = overlayCount === 0 ? baseLabel : 'v' + (overlayCount - 1);
         
         filterParts.push('[' + imgInputIdx + ':v]scale=' + cw + ':' + ch + ',format=rgba[' + tiLabel + ']');
-        filterParts.push('[' + lastLabel + '][' + tiLabel + "]overlay=" + cx + ":" + cy + ":enable='between(t," + startSec2 + "," + endSec2 + ")'[" + toLabel + "]");
+        filterParts.push(lastVideo + '[' + tiLabel + "]overlay=" + cx + ":" + cy + ":enable='between(t," + startSec2 + "," + endSec2 + ")'[" + toLabel + "]");
+        lastVideo = '[' + toLabel + ']';
         overlayCount++;
         continue; // skip drawtext for this clip
       }
