@@ -287,7 +287,8 @@ app.post('/api/export', async (req, res) => {
       const sx = ow / projectWidth, sy = oh / projectHeight;
       const tx = Math.round((clip.x || 0) * sx);
       const ty = Math.round((clip.y || 0) * sy);
-      const clipW = Math.round((clip.clipWidth || projectWidth) * sx);
+      const clipW = Math.round((clip.clipWidth || 800) * sx);
+      const clipH = Math.round((clip.clipHeight || 200) * sy);
       const fontSize = Math.round((clip.fontSize || 48) * sy);
 
       // Font resolution
@@ -314,7 +315,17 @@ app.post('/api/export', async (req, res) => {
       } else {
         dtParts.push('x=' + tx);
       }
-      dtParts.push('y=' + ty);
+      // Y: vertically center text within clip box
+      if (clipH > 0) {
+        dtParts.push('y=' + Math.round(ty + clipH/2) + '-text_h/2');
+      } else {
+        // Y: vertically center text within clip box
+      if (clipH > 0) {
+        dtParts.push('y=' + Math.round(ty + clipH/2) + '-text_h/2');
+      } else {
+        dtParts.push('y=' + ty);
+      }
+      }
 
       // Background box
       const bgOpacity = (clip.textBgOpacity || 0) / 100;
@@ -357,6 +368,8 @@ app.post('/api/export', async (req, res) => {
       const dtFilter = lastVideo + 'drawtext=' + dtParts.join(':') + '[' + dtLabel + ']';
       filterParts.push(dtFilter);
 
+      console.log('  [TEXT] "' + textContent.substring(0,30) + '" pos=(' + tx + ',' + ty + ') clipSize=' + clipW + 'x' + clipH + ' font=' + fontSize + 'px bg=' + (bgOpacity > 0 ? 'yes' : 'no') + ' border=' + ((clip.borderWidth||0) > 0 ? 'yes' : 'no'));
+      console.log('  [TEXT] "' + textContent.substring(0,30) + '" pos=(' + tx + ',' + ty + ') clipSize=' + clipW + 'x' + clipH + ' font=' + fontSize + 'px bg=' + (bgOpacity > 0 ? 'yes' : 'no') + ' border=' + ((clip.borderWidth||0) > 0 ? 'yes' : 'no'));
       lastVideo = '[' + dtLabel + ']';
       overlayCount++;
     }
@@ -407,7 +420,7 @@ app.post('/api/export', async (req, res) => {
       fs.writeFileSync(filterFile, complexFilter, 'utf8');
       console.log('  Filter script: ' + filterFile);
       console.log('  Filter content: ' + complexFilter.substring(0, 500));
-      args.push('-/filter_complex', filterFile);
+      args.push('-filter_complex_script', filterFile);
       args.push('-map', lastVideo);
       if (audioLabel) args.push('-map', '[' + audioLabel + ']');
       else args.push('-an');

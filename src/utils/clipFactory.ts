@@ -1,14 +1,9 @@
-import { uid } from './uid';
+﻿import { uid } from './uid';
 import { createDefaultClip } from '../types/clip';
 import { validateClipMedia } from './mediaResolver';
 import type { Clip } from '../types/clip';
 import type { MediaItem } from '../stores/slices/mediaSlice';
-
-/**
- * Central clip creation factory.
- * LeftPanel, TrackLane, and any other clip creators MUST use this.
- * Guarantees mediaId, src, and localPath are always set for media clips.
- */
+import { applyPresetStyle } from '../presets/textPresets';
 
 export function createMediaClipFromItem(
   mediaItem: MediaItem,
@@ -62,5 +57,31 @@ export function createTextClip(
     width: 800,
     height: 200,
     ...overrides,
+  });
+}
+
+export function createTextClipFromPreset(
+  presetId: string,
+  trackId: string,
+  startFrame: number,
+  fps: number,
+  textOverride?: string,
+  extraOverrides?: Partial<Clip>
+): Clip {
+  const presetStyle = applyPresetStyle(presetId, textOverride);
+  const text = textOverride || presetId;
+
+  return createDefaultClip({
+    id: uid(),
+    name: text,
+    type: 'text',
+    trackId,
+    startFrame,
+    durationFrames: fps * 5,
+    text,
+    width: 800,
+    height: 200,
+    ...presetStyle,
+    ...extraOverrides,
   });
 }
