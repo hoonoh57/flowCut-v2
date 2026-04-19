@@ -449,8 +449,6 @@ const PRESETS: TextPreset[] = [
     } as any,
   },
 
- as any,
-  },
 ];
 
 /* ═══════ PUBLIC API ═══════ */
