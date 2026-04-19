@@ -7,6 +7,7 @@ import { theme } from '../../styles/theme';
 import type { Clip } from '../../types/clip';
 import { getClipPreviewUrl } from '../../utils/mediaResolver';
 import { getEnvelopeVolume } from '../../types/clip';
+import { renderTextClip } from '../../renderer/textRenderer';
 import type { FitMode, AspectPreset } from '../../stores/slices/playbackSlice';
 
 type GuideMode = 'off' | 'safe' | 'grid' | 'center' | 'all';
@@ -51,6 +52,36 @@ function getClipFilter(clip: Clip): string {
   return filters.length > 0 ? filters.join(' ') : 'none';
 }
 
+const TextCanvasPreview: React.FC<{ clip: Clip }> = ({ clip }) => {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const w = clip.width || 800;
+    const h = clip.height || 200;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, w, h);
+    renderTextClip(ctx, { ...clip, x: 0, y: 0 }, w, h);
+  }, [
+    clip.text, clip.name, clip.fontSize, clip.fontFamily, clip.fontColor,
+    clip.fontWeight, clip.fontStyle, clip.textAlign, clip.lineHeight,
+    clip.textBgColor, clip.textBgOpacity, clip.borderColor, clip.borderWidth,
+    clip.shadowColor, clip.shadowX, clip.shadowY, clip.width, clip.height,
+    clip.opacity,
+  ]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ width: '100%', height: '100%', display: 'block' }}
+    />
+  );
+};
+
 const ClipMedia: React.FC<{ clip: Clip; isPlaying: boolean; currentFrame: number; fps: number; mediaItems?: any[] }> = ({ clip, isPlaying, currentFrame, fps, mediaItems }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const targetTime = (currentFrame - clip.startFrame) / fps * (clip.speed || 1);
@@ -80,50 +111,7 @@ const ClipMedia: React.FC<{ clip: Clip; isPlaying: boolean; currentFrame: number
       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />;
   }
   if (clip.type === 'text') {
-    const bgOpacity = (clip.textBgOpacity ?? 0) / 100;
-    const bgColor = clip.textBgColor || '#000000';
-    const r = parseInt(bgColor.slice(1,3),16), g = parseInt(bgColor.slice(3,5),16), b = parseInt(bgColor.slice(5,7),16);
-    const bgRgba = bgOpacity > 0 ? 'rgba(' + r + ',' + g + ',' + b + ',' + bgOpacity + ')' : 'transparent';
-
-    const borderW = clip.borderWidth ?? 0;
-    const borderCol = clip.borderColor || '#000000';
-    const borderStyle = borderW > 0 ? borderW + 'px solid ' + borderCol : 'none';
-
-    const shadowCol = clip.shadowColor || '#000000';
-    const shadowXv = clip.shadowX ?? 0;
-    const shadowYv = clip.shadowY ?? 2;
-    const textShadowStr = (shadowXv || shadowYv) ? shadowXv + 'px ' + shadowYv + 'px 4px ' + shadowCol : '0 2px 8px rgba(0,0,0,0.8)';
-
-    const fontW = clip.fontWeight || 'normal';
-    const fontS = clip.fontStyle || 'normal';
-    const tAlign = clip.textAlign || 'center';
-    const lineH = clip.lineHeight ?? 1.2;
-
-    return (
-      <div style={{
-        width: '100%', height: '100%', display: 'flex',
-        alignItems: tAlign === 'center' ? 'center' : 'flex-start',
-        justifyContent: tAlign === 'right' ? 'flex-end' : tAlign === 'center' ? 'center' : 'flex-start',
-      }}>
-        <div style={{
-          fontSize: clip.fontSize || 48,
-          fontFamily: clip.fontFamily || 'sans-serif',
-          fontWeight: fontW,
-          fontStyle: fontS,
-          color: clip.fontColor || '#fff',
-          textShadow: textShadowStr,
-          textAlign: tAlign as any,
-          lineHeight: lineH,
-          wordBreak: 'break-word',
-          padding: 8,
-          backgroundColor: bgRgba,
-          border: borderStyle,
-          borderRadius: bgOpacity > 0 ? 4 : 0,
-        }}>
-          {clip.text || clip.name}
-        </div>
-      </div>
-    );
+    return <TextCanvasPreview clip={clip} />;
   }
   return null;
 };

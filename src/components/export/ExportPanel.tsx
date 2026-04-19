@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { theme } from '../../styles/theme';
 import { getClipLocalPath } from '../../utils/mediaResolver';
+import { renderTextClip } from '../../renderer/textRenderer';
 
 type ExportFormat = 'mp4' | 'webm' | 'gif';
 type QualityLevel = 'original' | 'high' | 'medium' | 'low';
@@ -79,8 +80,45 @@ export const ExportPanel: React.FC = () => {
   const handleCustomH = (v: number) => { setCustomH(v); if (lockRatio && ph > 0) setCustomW(Math.round(v * (pw / ph))); };
   const audioClipCount = clips.filter(c => (c.type === 'video' || c.type === 'audio') && !c.muted).length;
 
+  // Render text clips to PNG and upload to server
+  const uploadTextAsImages = async (textClips) => {
+    const pathMap = new Map();
+    for (const clip of textClips) {
+      if (clip.type !== 'text') continue;
+      const w = clip.width || 800;
+      const h = clip.height || 200;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) continue;
+      renderTextClip(ctx, { ...clip, x: 0, y: 0 }, w, h);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) continue;
+      const formData = new FormData();
+      formData.append('file', blob, 'text_' + clip.id + '.png');
+      try {
+        const resp = await fetch(SERVER_URL + '/api/upload', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (data.success && data.localPath) {
+          pathMap.set(clip.id, data.localPath);
+          addExportLog('Text rendered: ' + (clip.text || '').substring(0, 20) + ' -> PNG');
+        }
+      } catch (err) {
+        addExportLog('Text render upload failed: ' + clip.id);
+      }
+    }
+    return pathMap;
+  };
+
   // Local FFmpeg export
   const startLocalExport = async () => {
+    // Pre-render text clips as PNG images
+    const allClips = tracks.flatMap(t => t.clips);
+    const textClips = allClips.filter(c => c.type === 'text');
+    const textImagePaths = await uploadTextAsImages(textClips);
+    addExportLog('Text images: ' + textImagePaths.size + ' uploaded');
+
     if (maxFrame === 0) return;
     clearExportLog(); setIsExporting(true); setExportProgress(0); setResultPath('');
     const out = getOutputSize();
@@ -125,6 +163,7 @@ export const ExportPanel: React.FC = () => {
           opacity: c.opacity,
           trackId: c.trackId,
           text: c.text || c.name || '',
+          renderedImagePath: (c.type === 'text' && textImagePaths ? textImagePaths.get(c.id) : undefined) || '',
           fontSize: c.fontSize || 48,
           fontColor: c.fontColor || '#ffffff',
           fontFamily: c.fontFamily || 'sans-serif',
