@@ -38,6 +38,20 @@ export interface Clip {
   fontSize?: number;
   fontColor?: string;
   fontFamily?: string;
+  // --- Text style ---
+  textAlign?: 'left' | 'center' | 'right';
+  fontWeight?: string;
+  fontStyle?: string;
+  textBgColor?: string;
+  textBgOpacity?: number;
+  borderColor?: string;
+  borderWidth?: number;
+  shadowColor?: string;
+  shadowX?: number;
+  shadowY?: number;
+  lineHeight?: number;
+  letterSpacing?: number;
+
   locked: boolean;
   visible: boolean;
 }
