@@ -1,8 +1,48 @@
-const { resolveFontPath } = require('./fontMap');
+
 const express = require('express');
 const cors = require('cors');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
+// === FONT MAP (inline) ===
+const FONT_DIR_PATH = 'C:/Windows/Fonts';
+const FONT_MAP = {
+  'Malgun Gothic':'malgun.ttf','맑은 고딕':'malgun.ttf',
+  'NanumGothic':'NanumGothic.ttf','나눔고딕':'NanumGothic.ttf',
+  'Arial':'arial.ttf','Times New Roman':'times.ttf',
+  'Courier New':'cour.ttf','Georgia':'georgia.ttf',
+  'Verdana':'verdana.ttf','Impact':'impact.ttf',
+  'Consolas':'consola.ttf','Segoe UI':'segoeui.ttf',
+  'Comic Sans MS':'comic.ttf','Calibri':'calibri.ttf',
+  'sans-serif':'malgun.ttf','serif':'batang.ttc',
+  'monospace':'consola.ttf','cursive':'comic.ttf'
+};
+const BOLD_MAP = {
+  'malgun.ttf':'malgunbd.ttf','arial.ttf':'arialbd.ttf',
+  'times.ttf':'timesbd.ttf','consola.ttf':'consolab.ttf'
+};
+function resolveFontPath(cssFontFamily, bold) {
+  if (!cssFontFamily) cssFontFamily = 'sans-serif';
+  const families = cssFontFamily.split(',').map(f => f.trim().replace(/^['"]|['"]$/g, ''));
+  let ttf = null;
+  for (const fam of families) {
+    if (FONT_MAP[fam]) { ttf = FONT_MAP[fam]; break; }
+    const lo = fam.toLowerCase();
+    for (const [k,v] of Object.entries(FONT_MAP)) {
+      if (k.toLowerCase() === lo) { ttf = v; break; }
+    }
+    if (ttf) break;
+  }
+  if (!ttf) ttf = 'malgun.ttf';
+  if (bold && BOLD_MAP[ttf]) {
+    const bp = path.join(FONT_DIR_PATH, BOLD_MAP[ttf]);
+    if (fs.existsSync(bp)) ttf = BOLD_MAP[ttf];
+  }
+  const full = path.join(FONT_DIR_PATH, ttf).replace(/\\/g, '/');
+  if (!fs.existsSync(full)) return path.join(FONT_DIR_PATH, 'malgun.ttf').replace(/\\/g, '/');
+  return full;
+}
+// === END FONT MAP ===
+
 const path = require('path');
 const multer = require('multer');
 

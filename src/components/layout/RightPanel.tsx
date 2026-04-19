@@ -1,7 +1,24 @@
-﻿import React from 'react';
+import React from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { UpdateClipCommand } from '../../stores/commands/UpdateClipCommand';
 import { theme } from '../../styles/theme';
+
+/* ── Font Presets ── */
+const FONT_OPTIONS = [
+  { value: 'Malgun Gothic, sans-serif', label: '\uB9D1\uC740 \uACE0\uB515' },
+  { value: 'NanumGothic, sans-serif', label: '\uB098\uB214\uACE0\uB515' },
+  { value: 'NanumMyeongjo, serif', label: '\uB098\uB214\uBA85\uC870' },
+  { value: 'Arial, sans-serif', label: 'Arial' },
+  { value: 'Georgia, serif', label: 'Georgia' },
+  { value: 'Times New Roman, serif', label: 'Times New Roman' },
+  { value: 'Courier New, monospace', label: 'Courier New' },
+  { value: 'Verdana, sans-serif', label: 'Verdana' },
+  { value: 'Impact, sans-serif', label: 'Impact' },
+  { value: 'Comic Sans MS, cursive', label: 'Comic Sans' },
+  { value: 'Consolas, monospace', label: 'Consolas' },
+  { value: 'Segoe UI, sans-serif', label: 'Segoe UI' },
+  { value: 'Calibri, sans-serif', label: 'Calibri' },
+];
 
 export function RightPanel() {
   const selectedClipIds = useEditorStore((s) => s.selectedClipIds);
@@ -17,9 +34,10 @@ export function RightPanel() {
     dispatch(new UpdateClipCommand(sc.id, { [key]: value }));
   };
 
-  const numField = (label: string, key: string, val: number, opts?: { min?: number; max?: number; step?: number }) => (
+  /* ── Reusable field components ── */
+  const numField = (label: string, key: string, val: number, opts?: { min?: number; max?: number; step?: number; unit?: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-      <span style={{ width: 50, fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>{label}</span>
+      <span style={{ width: 56, fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>{label}</span>
       <input type="number" value={val}
         min={opts?.min} max={opts?.max} step={opts?.step || 1}
         onChange={(e) => update(key, Number(e.target.value))}
@@ -30,17 +48,52 @@ export function RightPanel() {
           outline: 'none',
         }}
       />
+      {opts?.unit && <span style={{ fontSize: 10, color: theme.colors.text.muted, width: 20 }}>{opts.unit}</span>}
     </div>
   );
 
+  const colorField = (label: string, key: string, val: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+      <span style={{ width: 56, fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>{label}</span>
+      <input type="color" value={val || '#000000'} onChange={(e) => update(key, e.target.value)}
+        style={{ width: 28, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+      <span style={{ fontSize: 10, color: theme.colors.text.muted }}>{val || 'none'}</span>
+    </div>
+  );
+
+  const selectField = (label: string, key: string, val: string, options: { value: string; label: string }[]) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+      <span style={{ width: 56, fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>{label}</span>
+      <select value={val} onChange={(e) => update(key, e.target.value)}
+        style={{
+          flex: 1, padding: '3px 4px', fontSize: theme.fontSize.sm,
+          background: theme.colors.bg.elevated, color: theme.colors.text.primary,
+          border: `1px solid ${theme.colors.border.default}`, borderRadius: theme.radius.sm,
+          outline: 'none',
+        }}>
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+
+  const sectionHeader = (title: string) => (
+    <div style={{
+      fontSize: theme.fontSize.sm, fontWeight: 600, color: theme.colors.accent.blue,
+      marginTop: 14, marginBottom: 6, paddingBottom: 4,
+      borderBottom: `1px solid ${theme.colors.border.subtle}`,
+      textTransform: 'uppercase', letterSpacing: 0.5,
+    }}>{title}</div>
+  );
+
+  /* ── No selection ── */
   if (!sc) {
     return (
       <div style={{ padding: theme.spacing.lg, color: theme.colors.text.muted, fontSize: theme.fontSize.sm }}>
         <div style={{ fontSize: theme.fontSize.lg, fontWeight: 600, marginBottom: 16, color: theme.colors.text.primary }}>
-          {'\uC18D\uC131'}
+          Properties
         </div>
         <div style={{ textAlign: 'center', paddingTop: 40 }}>
-          {'\uD074\uB9BD\uC744 \uC120\uD0DD\uD558\uBA74 \uC18D\uC131\uC744 \uD3B8\uC9D1\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4'}
+          Select a clip to edit properties
         </div>
       </div>
     );
@@ -52,96 +105,141 @@ export function RightPanel() {
     : theme.colors.accent.purple;
 
   return (
-    <div style={{ padding: theme.spacing.lg, overflowY: 'auto', height: '100%' }}>
-      <div style={{ fontSize: theme.fontSize.lg, fontWeight: 600, marginBottom: 8, color: theme.colors.text.primary }}>
-        {'\uC18D\uC131'}
+    <div style={{ padding: 12, overflowY: 'auto', height: '100%' }}>
+      {/* Header */}
+      <div style={{ fontSize: theme.fontSize.lg, fontWeight: 600, marginBottom: 4, color: theme.colors.text.primary }}>
+        Properties
       </div>
-
-      {/* Clip name */}
-      <div style={{ color: typeColor, fontSize: theme.fontSize.md, fontWeight: 600, marginBottom: 4,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{
+        color: typeColor, fontSize: theme.fontSize.md, fontWeight: 600, marginBottom: 2,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+      }}>
         {sc.name}
       </div>
-      <div style={{ fontSize: theme.fontSize.xs, color: theme.colors.text.muted, marginBottom: 12 }}>
-        {'\uD0C0\uC785: '}{sc.type} | ID: {sc.id.slice(0, 8)}
+      <div style={{ fontSize: theme.fontSize.xs, color: theme.colors.text.muted, marginBottom: 10 }}>
+        {sc.type.toUpperCase()} | ID: {sc.id.slice(0, 8)}
       </div>
 
-      {/* Timeline */}
-      <div style={{ fontSize: theme.fontSize.sm, fontWeight: 600, color: theme.colors.text.secondary, marginBottom: 6 }}>
-        {'\uD0C0\uC784\uB77C\uC778'}
-      </div>
-      {numField('\uC2DC\uC791', 'startFrame', sc.startFrame, { min: 0 })}
-      {numField('\uAE38\uC774', 'durationFrames', sc.durationFrames, { min: 1 })}
-      {numField('\uC18D\uB3C4', 'speed', sc.speed, { min: 0.25, max: 4, step: 0.25 })}
+      {/* ════ TIMELINE ════ */}
+      {sectionHeader('Timeline')}
+      {numField('Start', 'startFrame', sc.startFrame, { min: 0, unit: 'f' })}
+      {numField('Duration', 'durationFrames', sc.durationFrames, { min: 1, unit: 'f' })}
+      {(sc.type === 'video' || sc.type === 'audio') &&
+        numField('Speed', 'speed', sc.speed, { min: 0.25, max: 4, step: 0.25, unit: 'x' })}
 
-      {/* Position/Size */}
-      <div style={{ fontSize: theme.fontSize.sm, fontWeight: 600, color: theme.colors.text.secondary, marginTop: 12, marginBottom: 6 }}>
-        {'\uC704\uCE58/\uD06C\uAE30'}
-      </div>
-      {numField('X', 'x', sc.x)}
-      {numField('Y', 'y', sc.y)}
-      {numField('\uB108\uBE44', 'width', sc.width, { min: 10 })}
-      {numField('\uB192\uC774', 'height', sc.height, { min: 10 })}
-      {numField('\uD68C\uC804', 'rotation', sc.rotation, { min: -360, max: 360 })}
+      {/* ════ TRANSFORM ════ */}
+      {(sc.type !== 'audio') && (
+        <>
+          {sectionHeader('Transform')}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            {numField('X', 'x', sc.x, { unit: 'px' })}
+            {numField('Y', 'y', sc.y, { unit: 'px' })}
+            {numField('W', 'width', sc.width, { min: 10, unit: 'px' })}
+            {numField('H', 'height', sc.height, { min: 10, unit: 'px' })}
+          </div>
+          {numField('Rotation', 'rotation', sc.rotation, { min: -360, max: 360, unit: '\u00B0' })}
+          {numField('Opacity', 'opacity', sc.opacity, { min: 0, max: 100, unit: '%' })}
+        </>
+      )}
 
-      {/* Style */}
-      <div style={{ fontSize: theme.fontSize.sm, fontWeight: 600, color: theme.colors.text.secondary, marginTop: 12, marginBottom: 6 }}>
-        {'\uC2A4\uD0C0\uC77C'}
-      </div>
-      {numField('\uBD88\uD22C\uBA85', 'opacity', sc.opacity, { min: 0, max: 100 })}
-      {numField('\uBC1D\uAE30', 'brightness', sc.brightness, { min: -100, max: 100 })}
-      {numField('\uB300\uBE44', 'contrast', sc.contrast, { min: 0, max: 200 })}
-      {numField('\uCC44\uB3C4', 'saturation', sc.saturation, { min: 0, max: 200 })}
+      {/* ════ TEXT CONTENT ════ */}
+      {sc.type === 'text' && (
+        <>
+          {sectionHeader('Text')}
+          <div style={{ marginBottom: 6 }}>
+            <textarea value={sc.text || ''} onChange={(e) => update('text', e.target.value)}
+              rows={3}
+              style={{
+                width: '100%', padding: 6, fontSize: 13, resize: 'vertical',
+                background: theme.colors.bg.elevated, color: theme.colors.text.primary,
+                border: `1px solid ${theme.colors.border.default}`, borderRadius: theme.radius.sm,
+                outline: 'none', fontFamily: sc.fontFamily || 'sans-serif',
+              }}
+              placeholder="Enter text..." />
+          </div>
+          {selectField('Font', 'fontFamily', sc.fontFamily || 'Malgun Gothic, sans-serif', FONT_OPTIONS)}
+          {numField('Size', 'fontSize', sc.fontSize || 48, { min: 8, max: 300, unit: 'px' })}
+          {colorField('Color', 'fontColor', sc.fontColor || '#ffffff')}
+          {selectField('Align', 'textAlign', sc.textAlign || 'center', [
+            { value: 'left', label: 'Left' },
+            { value: 'center', label: 'Center' },
+            { value: 'right', label: 'Right' },
+          ])}
+          {selectField('Weight', 'fontWeight', sc.fontWeight || 'normal', [
+            { value: 'normal', label: 'Normal' },
+            { value: 'bold', label: 'Bold' },
+          ])}
+          {selectField('Style', 'fontStyle', sc.fontStyle || 'normal', [
+            { value: 'normal', label: 'Normal' },
+            { value: 'italic', label: 'Italic' },
+          ])}
+          {numField('Line H', 'lineHeight', sc.lineHeight ?? 1.2, { min: 0.5, max: 4, step: 0.1 })}
+        </>
+      )}
 
-      {/* Audio */}
+      {/* ════ TEXT BACKGROUND ════ */}
+      {sc.type === 'text' && (
+        <>
+          {sectionHeader('Background')}
+          {colorField('BG Color', 'textBgColor', sc.textBgColor || '#000000')}
+          {numField('BG Opacity', 'textBgOpacity', sc.textBgOpacity ?? 0, { min: 0, max: 100, unit: '%' })}
+          <div style={{ fontSize: 10, color: theme.colors.text.muted, marginBottom: 4 }}>
+            0% = transparent, 100% = solid background
+          </div>
+        </>
+      )}
+
+      {/* ════ TEXT BORDER / OUTLINE ════ */}
+      {sc.type === 'text' && (
+        <>
+          {sectionHeader('Border / Outline')}
+          {numField('Width', 'borderWidth', sc.borderWidth ?? 0, { min: 0, max: 20, unit: 'px' })}
+          {colorField('Color', 'borderColor', sc.borderColor || '#000000')}
+        </>
+      )}
+
+      {/* ════ TEXT SHADOW ════ */}
+      {sc.type === 'text' && (
+        <>
+          {sectionHeader('Shadow')}
+          {colorField('Color', 'shadowColor', sc.shadowColor || '#000000')}
+          {numField('X', 'shadowX', sc.shadowX ?? 0, { min: -50, max: 50, unit: 'px' })}
+          {numField('Y', 'shadowY', sc.shadowY ?? 2, { min: -50, max: 50, unit: 'px' })}
+        </>
+      )}
+
+      {/* ════ VISUAL EFFECTS ════ */}
+      {(sc.type === 'video' || sc.type === 'image') && (
+        <>
+          {sectionHeader('Effects')}
+          {numField('Bright', 'brightness', sc.brightness, { min: -100, max: 100, unit: '%' })}
+          {numField('Contrast', 'contrast', sc.contrast, { min: 0, max: 200, unit: '%' })}
+          {numField('Saturate', 'saturation', sc.saturation, { min: 0, max: 200, unit: '%' })}
+        </>
+      )}
+
+      {/* ════ AUDIO ════ */}
       {(sc.type === 'video' || sc.type === 'audio') && (
         <>
-          <div style={{ fontSize: theme.fontSize.sm, fontWeight: 600, color: theme.colors.text.secondary, marginTop: 12, marginBottom: 6 }}>
-            {'\uC624\uB514\uC624'}
-          </div>
-          {numField('\uBCFC\uB968', 'volume', sc.volume, { min: 0, max: 200 })}
+          {sectionHeader('Audio')}
+          {numField('Volume', 'volume', sc.volume, { min: 0, max: 200, unit: '%' })}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-            <span style={{ width: 50, fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>{'\uBBA4\uD2B8'}</span>
+            <span style={{ width: 56, fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>Muted</span>
             <input type="checkbox" checked={sc.muted} onChange={(e) => update('muted', e.target.checked)} />
           </div>
         </>
       )}
 
-      {/* Fade */}
-      <div style={{ fontSize: theme.fontSize.sm, fontWeight: 600, color: theme.colors.text.secondary, marginTop: 12, marginBottom: 6 }}>
-        {'\uD398\uC774\uB4DC'}
-      </div>
-      {numField('Fade In', 'fadeIn', sc.fadeIn, { min: 0 })}
-      {numField('Fade Out', 'fadeOut', sc.fadeOut, { min: 0 })}
+      {/* ════ FADE ════ */}
+      {sectionHeader('Fade')}
+      {numField('Fade In', 'fadeIn', sc.fadeIn, { min: 0, unit: 'f' })}
+      {numField('Fade Out', 'fadeOut', sc.fadeOut, { min: 0, unit: 'f' })}
 
-      {/* Text-specific */}
-      {sc.type === 'text' && (
-        <>
-          <div style={{ fontSize: theme.fontSize.sm, fontWeight: 600, color: theme.colors.text.secondary, marginTop: 12, marginBottom: 6 }}>
-            {'\uD14D\uC2A4\uD2B8'}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-            <span style={{ width: 50, fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>{'\uB0B4\uC6A9'}</span>
-            <input type="text" value={sc.text || ''} onChange={(e) => update('text', e.target.value)}
-              style={{
-                flex: 1, padding: '3px 6px', fontSize: theme.fontSize.sm,
-                background: theme.colors.bg.elevated, color: theme.colors.text.primary,
-                border: `1px solid ${theme.colors.border.default}`, borderRadius: theme.radius.sm,
-                outline: 'none',
-              }} />
-          </div>
-          {numField('\uAE00\uC790\uD06C\uAE30', 'fontSize', sc.fontSize || 48, { min: 8, max: 200 })}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-            <span style={{ width: 50, fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>{'\uC0C9\uC0C1'}</span>
-            <input type="color" value={sc.fontColor || '#ffffff'} onChange={(e) => update('fontColor', e.target.value)}
-              style={{ width: 32, height: 24, border: 'none', background: 'none', cursor: 'pointer' }} />
-          </div>
-        </>
-      )}
-
-      {/* Footer info */}
-      <div style={{ marginTop: 20, paddingTop: 12, borderTop: `1px solid ${theme.colors.border.subtle}`,
-        display: 'flex', justifyContent: 'space-between', fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>
+      {/* Footer */}
+      <div style={{
+        marginTop: 16, paddingTop: 10, borderTop: `1px solid ${theme.colors.border.subtle}`,
+        display: 'flex', justifyContent: 'space-between', fontSize: theme.fontSize.xs, color: theme.colors.text.muted
+      }}>
         <span>Undo: {canUndo() ? 'Y' : 'N'}</span>
         <span>Redo: {canRedo() ? 'Y' : 'N'}</span>
       </div>
