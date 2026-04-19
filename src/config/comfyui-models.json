@@ -1,0 +1,1043 @@
+﻿{
+    "totalModels":  88,
+    "models":  [
+                   {
+                       "modelType":  "diffusion",
+                       "fileName":  "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+                       "lastModified":  "2026-04-16 13:13:02",
+                       "folder":  "diffusion_models",
+                       "sizeMB":  13632.5,
+                       "name":  "wan2.2_i2v_low_noise_14B_fp8_scaled",
+                       "sizeGB":  13.31,
+                       "relativePath":  "diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "diffusion",
+                       "fileName":  "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+                       "lastModified":  "2026-04-16 13:11:02",
+                       "folder":  "diffusion_models",
+                       "sizeMB":  13632.5,
+                       "name":  "wan2.2_i2v_high_noise_14B_fp8_scaled",
+                       "sizeGB":  13.31,
+                       "relativePath":  "diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "diffusion",
+                       "fileName":  "Wan2.2-I2V-A14B-HighNoise-Q5_K_S.gguf",
+                       "lastModified":  "2026-04-08 06:30:19",
+                       "folder":  "diffusion_models",
+                       "sizeMB":  9667.9,
+                       "name":  "Wan2.2-I2V-A14B-HighNoise-Q5_K_S",
+                       "sizeGB":  9.44,
+                       "relativePath":  "diffusion_models/Wan2.2-I2V-A14B-HighNoise-Q5_K_S.gguf",
+                       "extension":  ".gguf"
+                   },
+                   {
+                       "modelType":  "diffusion",
+                       "fileName":  "Wan2.2-I2V-A14B-LowNoise-Q5_K_S.gguf",
+                       "lastModified":  "2026-04-08 06:31:23",
+                       "folder":  "diffusion_models",
+                       "sizeMB":  9667.9,
+                       "name":  "Wan2.2-I2V-A14B-LowNoise-Q5_K_S",
+                       "sizeGB":  9.44,
+                       "relativePath":  "diffusion_models/Wan2.2-I2V-A14B-LowNoise-Q5_K_S.gguf",
+                       "extension":  ".gguf"
+                   },
+                   {
+                       "modelType":  "diffusion",
+                       "fileName":  "wan2.2_ti2v_5B_fp16.safetensors",
+                       "lastModified":  "2026-02-28 17:29:51",
+                       "folder":  "diffusion_models",
+                       "sizeMB":  9536.4,
+                       "name":  "wan2.2_ti2v_5B_fp16",
+                       "sizeGB":  9.31,
+                       "relativePath":  "diffusion_models/wan2.2_ti2v_5B_fp16.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "unet",
+                       "fileName":  "wan2.2-t2v-rapid-aio-v10-nsfw-Q4_K.gguf",
+                       "lastModified":  "2026-03-01 01:22:51",
+                       "folder":  "unet",
+                       "sizeMB":  9203.1,
+                       "name":  "wan2.2-t2v-rapid-aio-v10-nsfw-Q4_K",
+                       "sizeGB":  8.99,
+                       "relativePath":  "unet/wan2.2-t2v-rapid-aio-v10-nsfw-Q4_K.gguf",
+                       "extension":  ".gguf"
+                   },
+                   {
+                       "modelType":  "unet",
+                       "fileName":  "Wan2.2-I2V-A14B-LowNoise-Q4_K_S.gguf",
+                       "lastModified":  "2026-03-01 10:07:02",
+                       "folder":  "unet",
+                       "sizeMB":  8342.9,
+                       "name":  "Wan2.2-I2V-A14B-LowNoise-Q4_K_S",
+                       "sizeGB":  8.15,
+                       "relativePath":  "unet/Wan2.2-I2V-A14B-LowNoise-Q4_K_S.gguf",
+                       "extension":  ".gguf"
+                   },
+                   {
+                       "modelType":  "unet",
+                       "fileName":  "Wan2.2-I2V-A14B-HighNoise-Q4_K_S.gguf",
+                       "lastModified":  "2026-03-01 09:51:29",
+                       "folder":  "unet",
+                       "sizeMB":  8342.9,
+                       "name":  "Wan2.2-I2V-A14B-HighNoise-Q4_K_S",
+                       "sizeGB":  8.15,
+                       "relativePath":  "unet/Wan2.2-I2V-A14B-HighNoise-Q4_K_S.gguf",
+                       "extension":  ".gguf"
+                   },
+                   {
+                       "modelType":  "diffusion",
+                       "fileName":  "flux1-dev-Q5_K_S.gguf",
+                       "lastModified":  "2026-04-08 12:38:40",
+                       "folder":  "diffusion_models",
+                       "sizeMB":  7901.4,
+                       "name":  "flux1-dev-Q5_K_S",
+                       "sizeGB":  7.72,
+                       "relativePath":  "diffusion_models/flux1-dev-Q5_K_S.gguf",
+                       "extension":  ".gguf"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "ace_step_v1_3.5b.safetensors",
+                       "lastModified":  "2026-04-16 20:56:56",
+                       "folder":  "checkpoints",
+                       "sizeMB":  7343,
+                       "name":  "ace_step_v1_3.5b",
+                       "sizeGB":  7.17,
+                       "relativePath":  "checkpoints/ace_step_v1_3.5b.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors",
+                       "lastModified":  "2026-03-01 18:49:59",
+                       "folder":  "checkpoints",
+                       "sizeMB":  6776.2,
+                       "name":  "Juggernaut-XL_v9_RunDiffusionPhoto_v2",
+                       "sizeGB":  6.62,
+                       "relativePath":  "checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "RealVisXL_V4.0_Lightning.safetensors",
+                       "lastModified":  "2026-03-01 19:31:54",
+                       "folder":  "checkpoints",
+                       "sizeMB":  6617.8,
+                       "name":  "RealVisXL_V4.0_Lightning",
+                       "sizeGB":  6.46,
+                       "relativePath":  "checkpoints/RealVisXL_V4.0_Lightning.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "DreamShaperXL_Turbo_v2.safetensors",
+                       "lastModified":  "2026-03-01 18:54:05",
+                       "folder":  "checkpoints",
+                       "sizeMB":  6617.8,
+                       "name":  "DreamShaperXL_Turbo_v2",
+                       "sizeGB":  6.46,
+                       "relativePath":  "checkpoints/DreamShaperXL_Turbo_v2.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "novaAnimeXL_ilV180.safetensors",
+                       "lastModified":  "2026-04-11 00:02:34",
+                       "folder":  "checkpoints",
+                       "sizeMB":  6617.6,
+                       "name":  "novaAnimeXL_ilV180",
+                       "sizeGB":  6.46,
+                       "relativePath":  "checkpoints/novaAnimeXL_ilV180.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "diffusion",
+                       "fileName":  "svdq-int4_r32-flux.1-kontext-dev.safetensors",
+                       "lastModified":  "2026-04-08 22:11:40",
+                       "folder":  "diffusion_models",
+                       "sizeMB":  6454.8,
+                       "name":  "svdq-int4_r32-flux.1-kontext-dev",
+                       "sizeGB":  6.3,
+                       "relativePath":  "diffusion_models/svdq-int4_r32-flux.1-kontext-dev.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "diffusion",
+                       "fileName":  "svdq-int4_r32-flux.1-dev.safetensors",
+                       "lastModified":  "2026-04-08 20:18:02",
+                       "folder":  "diffusion_models",
+                       "sizeMB":  6454.8,
+                       "name":  "svdq-int4_r32-flux.1-dev",
+                       "sizeGB":  6.3,
+                       "relativePath":  "diffusion_models/svdq-int4_r32-flux.1-dev.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "text_encoders",
+                       "fileName":  "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+                       "lastModified":  "2026-02-28 17:27:03",
+                       "folder":  "text_encoders",
+                       "sizeMB":  6423.9,
+                       "name":  "umt5_xxl_fp8_e4m3fn_scaled",
+                       "sizeGB":  6.27,
+                       "relativePath":  "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "clip",
+                       "fileName":  "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+                       "lastModified":  "2026-04-01 23:27:34",
+                       "folder":  "clip",
+                       "sizeMB":  6423.9,
+                       "name":  "umt5_xxl_fp8_e4m3fn_scaled",
+                       "sizeGB":  6.27,
+                       "relativePath":  "clip/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "diffusion",
+                       "fileName":  "flux1-dev-Q3_K_S.gguf",
+                       "lastModified":  "2026-04-08 15:48:53",
+                       "folder":  "diffusion_models",
+                       "sizeMB":  4991.8,
+                       "name":  "flux1-dev-Q3_K_S",
+                       "sizeGB":  4.87,
+                       "relativePath":  "diffusion_models/flux1-dev-Q3_K_S.gguf",
+                       "extension":  ".gguf"
+                   },
+                   {
+                       "modelType":  "text_encoders",
+                       "fileName":  "flux1-dev-Q3_K_S.gguf",
+                       "lastModified":  "2026-04-08 15:52:47",
+                       "folder":  "text_encoders",
+                       "sizeMB":  4991.8,
+                       "name":  "flux1-dev-Q3_K_S",
+                       "sizeGB":  4.87,
+                       "relativePath":  "text_encoders/flux1-dev-Q3_K_S.gguf",
+                       "extension":  ".gguf"
+                   },
+                   {
+                       "modelType":  "clip",
+                       "fileName":  "t5xxl_fp8_e4m3fn_scaled.safetensors",
+                       "lastModified":  "2026-04-08 12:47:02",
+                       "folder":  "clip",
+                       "sizeMB":  4918.4,
+                       "name":  "t5xxl_fp8_e4m3fn_scaled",
+                       "sizeGB":  4.8,
+                       "relativePath":  "clip/t5xxl_fp8_e4m3fn_scaled.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "controlnet",
+                       "fileName":  "thibaud_xl_openpose.safetensors",
+                       "lastModified":  "2026-04-11 11:19:19",
+                       "folder":  "controlnet",
+                       "sizeMB":  4772.3,
+                       "name":  "thibaud_xl_openpose",
+                       "sizeGB":  4.66,
+                       "relativePath":  "controlnet/thibaud_xl_openpose.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "stable-audio-open-1.0.safetensors",
+                       "lastModified":  "2026-04-16 21:34:33",
+                       "folder":  "checkpoints",
+                       "sizeMB":  4629,
+                       "name":  "stable-audio-open-1.0",
+                       "sizeGB":  4.52,
+                       "relativePath":  "checkpoints/stable-audio-open-1.0.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "text_encoders",
+                       "fileName":  "umt5-xxl-encoder-Q3_K_M.gguf",
+                       "lastModified":  "2026-03-01 01:27:13",
+                       "folder":  "text_encoders",
+                       "sizeMB":  2913.6,
+                       "name":  "umt5-xxl-encoder-Q3_K_M",
+                       "sizeGB":  2.85,
+                       "relativePath":  "text_encoders/umt5-xxl-encoder-Q3_K_M.gguf",
+                       "extension":  ".gguf"
+                   },
+                   {
+                       "modelType":  "clip_vision",
+                       "fileName":  "clip_vision_g.safetensors",
+                       "lastModified":  "2026-04-10 13:31:42",
+                       "folder":  "clip_vision",
+                       "sizeMB":  2411.2,
+                       "name":  "clip_vision_g",
+                       "sizeGB":  2.35,
+                       "relativePath":  "clip_vision/clip_vision_g.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "majicmix_fantasy.safetensors",
+                       "lastModified":  "2026-04-10 13:36:05",
+                       "folder":  "checkpoints",
+                       "sizeMB":  2411.2,
+                       "name":  "majicmix_fantasy",
+                       "sizeGB":  2.35,
+                       "relativePath":  "checkpoints/majicmix_fantasy.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "clip_vision",
+                       "fileName":  "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors",
+                       "lastModified":  "2026-01-25 06:39:48",
+                       "folder":  "clip_vision",
+                       "sizeMB":  2411.2,
+                       "name":  "CLIP-ViT-H-14-laion2B-s32B-b79K",
+                       "sizeGB":  2.35,
+                       "relativePath":  "clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "model (1).safetensors",
+                       "lastModified":  "2026-04-10 21:00:45",
+                       "folder":  "checkpoints",
+                       "sizeMB":  2411.2,
+                       "name":  "model (1)",
+                       "sizeGB":  2.35,
+                       "relativePath":  "checkpoints/model (1).safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "ghostmix_v20Bakedvae.safetensors",
+                       "lastModified":  "2026-04-10 13:45:10",
+                       "folder":  "checkpoints",
+                       "sizeMB":  2288.9,
+                       "name":  "ghostmix_v20Bakedvae",
+                       "sizeGB":  2.24,
+                       "relativePath":  "checkpoints/ghostmix_v20Bakedvae.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "majicmixFantasy_v30Vae.safetensors",
+                       "lastModified":  "2026-04-10 21:11:46",
+                       "folder":  "checkpoints",
+                       "sizeMB":  2033.8,
+                       "name":  "majicmixFantasy_v30Vae",
+                       "sizeGB":  1.99,
+                       "relativePath":  "checkpoints/majicmixFantasy_v30Vae.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "dreamshaper_8.safetensors",
+                       "lastModified":  "2026-01-24 22:26:18",
+                       "folder":  "checkpoints",
+                       "sizeMB":  2033.8,
+                       "name":  "dreamshaper_8",
+                       "sizeGB":  1.99,
+                       "relativePath":  "checkpoints/dreamshaper_8.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "checkpoint",
+                       "fileName":  "majicmixRealistic_v7.safetensors",
+                       "lastModified":  "2026-04-10 21:14:13",
+                       "folder":  "checkpoints",
+                       "sizeMB":  2033.8,
+                       "name":  "majicmixRealistic_v7",
+                       "sizeGB":  1.99,
+                       "relativePath":  "checkpoints/majicmixRealistic_v7.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-faceid-plusv2_sdxl.bin",
+                       "lastModified":  "2026-03-01 20:50:56",
+                       "folder":  "ipadapter",
+                       "sizeMB":  1418.6,
+                       "name":  "ip-adapter-faceid-plusv2_sdxl",
+                       "sizeGB":  1.39,
+                       "relativePath":  "ipadapter/ip-adapter-faceid-plusv2_sdxl.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "vae",
+                       "fileName":  "wan2.2_vae.safetensors",
+                       "lastModified":  "2026-02-28 17:25:08",
+                       "folder":  "vae",
+                       "sizeMB":  1344.1,
+                       "name":  "wan2.2_vae",
+                       "sizeGB":  1.31,
+                       "relativePath":  "vae/wan2.2_vae.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "Hyper-FLUX.1-dev-8steps-lora.safetensors",
+                       "lastModified":  "2026-04-08 15:35:37",
+                       "folder":  "loras",
+                       "sizeMB":  1323.7,
+                       "name":  "Hyper-FLUX.1-dev-8steps-lora",
+                       "sizeGB":  1.29,
+                       "relativePath":  "loras/Hyper-FLUX.1-dev-8steps-lora.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+                       "lastModified":  "2026-04-16 13:07:14",
+                       "folder":  "loras",
+                       "sizeMB":  1170.1,
+                       "name":  "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise",
+                       "sizeGB":  1.14,
+                       "relativePath":  "loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
+                       "lastModified":  "2026-04-16 22:10:49",
+                       "folder":  "loras",
+                       "sizeMB":  1170.1,
+                       "name":  "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise",
+                       "sizeGB":  1.14,
+                       "relativePath":  "loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+                       "lastModified":  "2026-04-16 13:06:57",
+                       "folder":  "loras",
+                       "sizeMB":  1170.1,
+                       "name":  "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise",
+                       "sizeGB":  1.14,
+                       "relativePath":  "loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-faceid_sdxl.bin",
+                       "lastModified":  "2026-04-10 10:58:16",
+                       "folder":  "ipadapter",
+                       "sizeMB":  1021.5,
+                       "name":  "ip-adapter-faceid_sdxl",
+                       "sizeGB":  1,
+                       "relativePath":  "ipadapter/ip-adapter-faceid_sdxl.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-faceid-portrait_sdxl_unnorm.bin",
+                       "lastModified":  "2026-04-10 10:59:12",
+                       "folder":  "ipadapter",
+                       "sizeMB":  962.8,
+                       "name":  "ip-adapter-faceid-portrait_sdxl_unnorm",
+                       "sizeGB":  0.94,
+                       "relativePath":  "ipadapter/ip-adapter-faceid-portrait_sdxl_unnorm.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "text_encoders",
+                       "fileName":  "t5-base.safetensors",
+                       "lastModified":  "2026-04-16 21:33:56",
+                       "folder":  "text_encoders",
+                       "sizeMB":  850.3,
+                       "name":  "t5-base",
+                       "sizeGB":  0.83,
+                       "relativePath":  "text_encoders/t5-base.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-plus-face_sdxl_vit-h.safetensors",
+                       "lastModified":  "2026-03-14 12:19:11",
+                       "folder":  "ipadapter",
+                       "sizeMB":  808.3,
+                       "name":  "ip-adapter-plus-face_sdxl_vit-h",
+                       "sizeGB":  0.79,
+                       "relativePath":  "ipadapter/ip-adapter-plus-face_sdxl_vit-h.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-plus_sdxl_vit-h.safetensors",
+                       "lastModified":  "2026-04-07 14:41:50",
+                       "folder":  "ipadapter",
+                       "sizeMB":  808.3,
+                       "name":  "ip-adapter-plus_sdxl_vit-h",
+                       "sizeGB":  0.79,
+                       "relativePath":  "ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-faceid-portrait_sdxl.bin",
+                       "lastModified":  "2026-04-10 10:58:48",
+                       "folder":  "ipadapter",
+                       "sizeMB":  715.1,
+                       "name":  "ip-adapter-faceid-portrait_sdxl",
+                       "sizeGB":  0.7,
+                       "relativePath":  "ipadapter/ip-adapter-faceid-portrait_sdxl.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "controlnet",
+                       "fileName":  "control_v11p_sd15_openpose_fp16.safetensors",
+                       "lastModified":  "2026-04-10 13:31:56",
+                       "folder":  "controlnet",
+                       "sizeMB":  689.1,
+                       "name":  "control_v11p_sd15_openpose_fp16",
+                       "sizeGB":  0.67,
+                       "relativePath":  "controlnet/control_v11p_sd15_openpose_fp16.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "controlnet",
+                       "fileName":  "control_v11p_sd15_openpose_fp16.safetensors",
+                       "lastModified":  "2026-04-10 11:41:46",
+                       "folder":  "controlnet",
+                       "sizeMB":  689.1,
+                       "name":  "control_v11p_sd15_openpose_fp16",
+                       "sizeGB":  0.67,
+                       "relativePath":  "controlnet/1.5/control_v11p_sd15_openpose_fp16.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter_sdxl_vit-h.safetensors",
+                       "lastModified":  "2026-04-07 14:39:54",
+                       "folder":  "ipadapter",
+                       "sizeMB":  666,
+                       "name":  "ip-adapter_sdxl_vit-h",
+                       "sizeGB":  0.65,
+                       "relativePath":  "ipadapter/ip-adapter_sdxl_vit-h.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "audio_encoders",
+                       "fileName":  "wav2vec2_large_english_fp16.safetensors",
+                       "lastModified":  "2026-04-16 22:09:51",
+                       "folder":  "audio_encoders",
+                       "sizeMB":  601.8,
+                       "name":  "wav2vec2_large_english_fp16",
+                       "sizeGB":  0.59,
+                       "relativePath":  "audio_encoders/wav2vec2_large_english_fp16.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "Wan2.2-Lightning_I2V-A14B-4steps-lora_HIGH_fp16.safetensors",
+                       "lastModified":  "2026-03-14 00:41:59",
+                       "folder":  "loras",
+                       "sizeMB":  585.1,
+                       "name":  "Wan2.2-Lightning_I2V-A14B-4steps-lora_HIGH_fp16",
+                       "sizeGB":  0.57,
+                       "relativePath":  "loras/Wan2.2-Lightning_I2V-A14B-4steps-lora_HIGH_fp16.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16.safetensors",
+                       "lastModified":  "2026-03-14 00:42:27",
+                       "folder":  "loras",
+                       "sizeMB":  585.1,
+                       "name":  "Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16",
+                       "sizeGB":  0.57,
+                       "relativePath":  "loras/Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "sdxl_lightning_4step_lora.safetensors",
+                       "lastModified":  "2026-03-01 17:11:20",
+                       "folder":  "loras",
+                       "sizeMB":  375.6,
+                       "name":  "sdxl_lightning_4step_lora",
+                       "sizeGB":  0.37,
+                       "relativePath":  "loras/sdxl_lightning_4step_lora.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "sams",
+                       "fileName":  "sam_vit_b_01ec64.pth",
+                       "lastModified":  "2026-04-09 20:39:00",
+                       "folder":  "sams",
+                       "sizeMB":  357.7,
+                       "name":  "sam_vit_b_01ec64",
+                       "sizeGB":  0.35,
+                       "relativePath":  "sams/sam_vit_b_01ec64.pth",
+                       "extension":  ".pth"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "ip-adapter-faceid-plusv2_sdxl_lora.safetensors",
+                       "lastModified":  "2026-03-01 20:51:02",
+                       "folder":  "loras",
+                       "sizeMB":  354.6,
+                       "name":  "ip-adapter-faceid-plusv2_sdxl_lora",
+                       "sizeGB":  0.35,
+                       "relativePath":  "loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "ip-adapter-faceid_sdxl_lora.safetensors",
+                       "lastModified":  "2026-04-10 11:24:22",
+                       "folder":  "loras",
+                       "sizeMB":  354.6,
+                       "name":  "ip-adapter-faceid_sdxl_lora",
+                       "sizeGB":  0.35,
+                       "relativePath":  "loras/ipadapter/ip-adapter-faceid_sdxl_lora.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "antelopev2.zip",
+                       "lastModified":  "2026-03-14 11:39:39",
+                       "folder":  "insightface",
+                       "sizeMB":  344,
+                       "name":  "antelopev2",
+                       "sizeGB":  0.34,
+                       "relativePath":  "insightface/models/antelopev2.zip",
+                       "extension":  ".zip"
+                   },
+                   {
+                       "modelType":  "vae",
+                       "fileName":  "ae.safetensors",
+                       "lastModified":  "2026-04-08 14:52:49",
+                       "folder":  "vae",
+                       "sizeMB":  319.8,
+                       "name":  "ae",
+                       "sizeGB":  0.31,
+                       "relativePath":  "vae/ae.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "buffalo_l.zip",
+                       "lastModified":  "2026-03-01 21:20:11",
+                       "folder":  "insightface",
+                       "sizeMB":  275.3,
+                       "name":  "buffalo_l",
+                       "sizeGB":  0.27,
+                       "relativePath":  "insightface/models/buffalo_l.zip",
+                       "extension":  ".zip"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "glintr100.onnx",
+                       "lastModified":  "2026-03-14 11:42:40",
+                       "folder":  "insightface",
+                       "sizeMB":  248.6,
+                       "name":  "glintr100",
+                       "sizeGB":  0.24,
+                       "relativePath":  "insightface/models/antelopev2/glintr100.onnx",
+                       "extension":  ".onnx"
+                   },
+                   {
+                       "modelType":  "vae",
+                       "fileName":  "wan_2.1_vae.safetensors",
+                       "lastModified":  "2026-03-01 01:53:18",
+                       "folder":  "vae",
+                       "sizeMB":  242.1,
+                       "name":  "wan_2.1_vae",
+                       "sizeGB":  0.24,
+                       "relativePath":  "vae/wan_2.1_vae.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "clip",
+                       "fileName":  "clip_l.safetensors",
+                       "lastModified":  "2026-04-08 14:11:36",
+                       "folder":  "clip",
+                       "sizeMB":  234.7,
+                       "name":  "clip_l",
+                       "sizeGB":  0.23,
+                       "relativePath":  "clip/clip_l.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "w600k_r50.onnx",
+                       "lastModified":  "2026-03-01 21:20:14",
+                       "folder":  "insightface",
+                       "sizeMB":  166.3,
+                       "name":  "w600k_r50",
+                       "sizeGB":  0.16,
+                       "relativePath":  "insightface/models/buffalo_l/w600k_r50.onnx",
+                       "extension":  ".onnx"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "w600k_r50.onnx",
+                       "lastModified":  "2021-09-20 20:28:32",
+                       "folder":  "insightface",
+                       "sizeMB":  166.3,
+                       "name":  "w600k_r50",
+                       "sizeGB":  0.16,
+                       "relativePath":  "insightface/w600k_r50.onnx",
+                       "extension":  ".onnx"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "flux-schnell-lora.safetensors",
+                       "lastModified":  "2026-04-08 15:17:51",
+                       "folder":  "loras",
+                       "sizeMB":  164,
+                       "name":  "flux-schnell-lora",
+                       "sizeGB":  0.16,
+                       "relativePath":  "loras/flux-schnell-lora.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "XL-KananTakakiyo-v2-MistressKananisDevilishlyEasy-ILXL.safetensors",
+                       "lastModified":  "2026-04-10 23:12:40",
+                       "folder":  "loras",
+                       "sizeMB":  163.5,
+                       "name":  "XL-KananTakakiyo-v2-MistressKananisDevilishlyEasy-ILXL",
+                       "sizeGB":  0.16,
+                       "relativePath":  "loras/XL-KananTakakiyo-v2-MistressKananisDevilishlyEasy-ILXL.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ip-adapter-plus_sd15.bin",
+                       "fileName":  "ip-adapter-plus_sd15.bin",
+                       "lastModified":  "2026-01-24 22:17:08",
+                       "folder":  "ip-adapter-plus_sd15.bin",
+                       "sizeMB":  150.7,
+                       "name":  "ip-adapter-plus_sd15",
+                       "sizeGB":  0.15,
+                       "relativePath":  "ip-adapter-plus_sd15.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-plus_sd15.bin",
+                       "lastModified":  "2026-04-10 13:30:58",
+                       "folder":  "ipadapter",
+                       "sizeMB":  150.7,
+                       "name":  "ip-adapter-plus_sd15",
+                       "sizeGB":  0.15,
+                       "relativePath":  "ipadapter/ip-adapter-plus_sd15.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-faceid-plusv2_sd15.bin",
+                       "lastModified":  "2026-04-10 10:53:47",
+                       "folder":  "ipadapter",
+                       "sizeMB":  149.3,
+                       "name":  "ip-adapter-faceid-plusv2_sd15",
+                       "sizeGB":  0.15,
+                       "relativePath":  "ipadapter/ip-adapter-faceid-plusv2_sd15.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-faceid-plus_sd15.bin",
+                       "lastModified":  "2026-04-10 10:55:53",
+                       "folder":  "ipadapter",
+                       "sizeMB":  149.3,
+                       "name":  "ip-adapter-faceid-plus_sd15",
+                       "sizeGB":  0.15,
+                       "relativePath":  "ipadapter/ip-adapter-faceid-plus_sd15.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "1k3d68.onnx",
+                       "lastModified":  "2026-03-14 11:42:39",
+                       "folder":  "insightface",
+                       "sizeMB":  137,
+                       "name":  "1k3d68",
+                       "sizeGB":  0.13,
+                       "relativePath":  "insightface/models/antelopev2/1k3d68.onnx",
+                       "extension":  ".onnx"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "1k3d68.onnx",
+                       "lastModified":  "2026-03-01 21:20:13",
+                       "folder":  "insightface",
+                       "sizeMB":  137,
+                       "name":  "1k3d68",
+                       "sizeGB":  0.13,
+                       "relativePath":  "insightface/models/buffalo_l/1k3d68.onnx",
+                       "extension":  ".onnx"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "1k3d68.onnx",
+                       "lastModified":  "2021-09-20 12:49:00",
+                       "folder":  "insightface",
+                       "sizeMB":  137,
+                       "name":  "1k3d68",
+                       "sizeGB":  0.13,
+                       "relativePath":  "insightface/1k3d68.onnx",
+                       "extension":  ".onnx"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-plus_sd15.safetensors",
+                       "lastModified":  "2026-01-25 06:38:12",
+                       "folder":  "ipadapter",
+                       "sizeMB":  93.6,
+                       "name":  "ip-adapter-plus_sd15",
+                       "sizeGB":  0.09,
+                       "relativePath":  "ipadapter/ip-adapter-plus_sd15.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-faceid_sd15.bin",
+                       "lastModified":  "2026-01-25 07:43:13",
+                       "folder":  "ipadapter",
+                       "sizeMB":  92.3,
+                       "name":  "ip-adapter-faceid_sd15",
+                       "sizeGB":  0.09,
+                       "relativePath":  "ipadapter/ip-adapter-faceid_sd15.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "futurama_style_klein9b.safetensors",
+                       "lastModified":  "2026-04-10 21:17:38",
+                       "folder":  "loras",
+                       "sizeMB":  79,
+                       "name":  "futurama_style_klein9b",
+                       "sizeGB":  0.08,
+                       "relativePath":  "loras/futurama_style_klein9b.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "upscaler",
+                       "fileName":  "2xLexicaRRDBNet_Sharp.pth",
+                       "lastModified":  "2026-03-14 00:45:54",
+                       "folder":  "upscale_models",
+                       "sizeMB":  63.9,
+                       "name":  "2xLexicaRRDBNet_Sharp",
+                       "sizeGB":  0.06,
+                       "relativePath":  "upscale_models/2xLexicaRRDBNet_Sharp.pth",
+                       "extension":  ".pth"
+                   },
+                   {
+                       "modelType":  "upscaler",
+                       "fileName":  "4x-UltraSharp.pth",
+                       "lastModified":  "2026-04-07 16:36:26",
+                       "folder":  "upscale_models",
+                       "sizeMB":  63.9,
+                       "name":  "4x-UltraSharp",
+                       "sizeGB":  0.06,
+                       "relativePath":  "upscale_models/4x-UltraSharp.pth",
+                       "extension":  ".pth"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-faceid-portrait-v11_sd15.bin",
+                       "lastModified":  "2026-04-10 10:58:20",
+                       "folder":  "ipadapter",
+                       "sizeMB":  61.6,
+                       "name":  "ip-adapter-faceid-portrait-v11_sd15",
+                       "sizeGB":  0.06,
+                       "relativePath":  "ipadapter/ip-adapter-faceid-portrait-v11_sd15.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter-faceid-portrait_sd15.bin",
+                       "lastModified":  "2026-04-10 10:58:24",
+                       "folder":  "ipadapter",
+                       "sizeMB":  61.6,
+                       "name":  "ip-adapter-faceid-portrait_sd15",
+                       "sizeGB":  0.06,
+                       "relativePath":  "ipadapter/ip-adapter-faceid-portrait_sd15.bin",
+                       "extension":  ".bin"
+                   },
+                   {
+                       "modelType":  "ultralytics",
+                       "fileName":  "person_yolov8m-seg.pt",
+                       "lastModified":  "2026-04-09 20:44:42",
+                       "folder":  "ultralytics",
+                       "sizeMB":  52.3,
+                       "name":  "person_yolov8m-seg",
+                       "sizeGB":  0.05,
+                       "relativePath":  "ultralytics/segm/person_yolov8m-seg.pt",
+                       "extension":  ".pt"
+                   },
+                   {
+                       "modelType":  "ultralytics",
+                       "fileName":  "face_yolov8m.pt",
+                       "lastModified":  "2026-04-09 20:44:40",
+                       "folder":  "ultralytics",
+                       "sizeMB":  49.6,
+                       "name":  "face_yolov8m",
+                       "sizeGB":  0.05,
+                       "relativePath":  "ultralytics/bbox/face_yolov8m.pt",
+                       "extension":  ".pt"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "ip-adapter-faceid-plusv2_sd15_lora.safetensors",
+                       "lastModified":  "2026-04-10 11:24:14",
+                       "folder":  "loras",
+                       "sizeMB":  48.7,
+                       "name":  "ip-adapter-faceid-plusv2_sd15_lora",
+                       "sizeGB":  0.05,
+                       "relativePath":  "loras/ipadapter/ip-adapter-faceid-plusv2_sd15_lora.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "ip-adapter-faceid-plus_sd15_lora.safetensors",
+                       "lastModified":  "2026-04-10 11:24:11",
+                       "folder":  "loras",
+                       "sizeMB":  48.7,
+                       "name":  "ip-adapter-faceid-plus_sd15_lora",
+                       "sizeGB":  0.05,
+                       "relativePath":  "loras/ipadapter/ip-adapter-faceid-plus_sd15_lora.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "lora",
+                       "fileName":  "ip-adapter-faceid_sd15_lora.safetensors",
+                       "lastModified":  "2026-04-10 11:24:07",
+                       "folder":  "loras",
+                       "sizeMB":  48.7,
+                       "name":  "ip-adapter-faceid_sd15_lora",
+                       "sizeGB":  0.05,
+                       "relativePath":  "loras/ipadapter/ip-adapter-faceid_sd15_lora.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ipadapter",
+                       "fileName":  "ip-adapter_sd15.safetensors",
+                       "lastModified":  "2026-04-07 14:15:34",
+                       "folder":  "ipadapter",
+                       "sizeMB":  42.6,
+                       "name":  "ip-adapter_sd15",
+                       "sizeGB":  0.04,
+                       "relativePath":  "ipadapter/ip-adapter_sd15.safetensors",
+                       "extension":  ".safetensors"
+                   },
+                   {
+                       "modelType":  "ultralytics",
+                       "fileName":  "hand_yolov8s.pt",
+                       "lastModified":  "2026-04-09 20:44:41",
+                       "folder":  "ultralytics",
+                       "sizeMB":  21.5,
+                       "name":  "hand_yolov8s",
+                       "sizeGB":  0.02,
+                       "relativePath":  "ultralytics/bbox/hand_yolov8s.pt",
+                       "extension":  ".pt"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "det_10g.onnx",
+                       "lastModified":  "2026-03-01 21:20:12",
+                       "folder":  "insightface",
+                       "sizeMB":  16.1,
+                       "name":  "det_10g",
+                       "sizeGB":  0.02,
+                       "relativePath":  "insightface/models/buffalo_l/det_10g.onnx",
+                       "extension":  ".onnx"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "det_10g.onnx",
+                       "lastModified":  "2021-09-20 12:49:00",
+                       "folder":  "insightface",
+                       "sizeMB":  16.1,
+                       "name":  "det_10g",
+                       "sizeGB":  0.02,
+                       "relativePath":  "insightface/det_10g.onnx",
+                       "extension":  ".onnx"
+                   },
+                   {
+                       "modelType":  "insightface",
+                       "fileName":  "scrfd_10g_bnkps.onnx",
+                       "lastModified":  "2026-03-14 11:42:40",
+                       "folder":  "insightface",
+                       "sizeMB":  16.1,
+                       "name":  "scrfd_10g_bnkps",
+                       "sizeGB":  0.02,
+                       "relativePath":  "insightface/models/antelopev2/scrfd_10g_bnkps.onnx",
+                       "extension":  ".onnx"
+                   }
+               ],
+    "minSizeMB":  10,
+    "summary":  {
+                    "vae":  {
+                                "count":  3,
+                                "sizeGB":  1.86
+                            },
+                    "ipadapter":  {
+                                      "count":  15,
+                                      "sizeGB":  7.05
+                                  },
+                    "controlnet":  {
+                                       "count":  3,
+                                       "sizeGB":  6
+                                   },
+                    "checkpoint":  {
+                                       "count":  12,
+                                       "sizeGB":  50.6
+                                   },
+                    "upscaler":  {
+                                     "count":  2,
+                                     "sizeGB":  0.12
+                                 },
+                    "clip_vision":  {
+                                        "count":  2,
+                                        "sizeGB":  4.7
+                                    },
+                    "ultralytics":  {
+                                        "count":  3,
+                                        "sizeGB":  0.12
+                                    },
+                    "sams":  {
+                                 "count":  1,
+                                 "sizeGB":  0.35
+                             },
+                    "diffusion":  {
+                                      "count":  9,
+                                      "sizeGB":  80
+                                  },
+                    "lora":  {
+                                 "count":  15,
+                                 "sizeGB":  7.47
+                             },
+                    "audio_encoders":  {
+                                           "count":  1,
+                                           "sizeGB":  0.59
+                                       },
+                    "ip-adapter-plus_sd15.bin":  {
+                                                     "count":  1,
+                                                     "sizeGB":  0.15
+                                                 },
+                    "clip":  {
+                                 "count":  3,
+                                 "sizeGB":  11.3
+                             },
+                    "unet":  {
+                                 "count":  3,
+                                 "sizeGB":  25.29
+                             },
+                    "text_encoders":  {
+                                          "count":  4,
+                                          "sizeGB":  14.82
+                                      },
+                    "insightface":  {
+                                        "count":  11,
+                                        "sizeGB":  1.62
+                                    }
+                },
+    "totalSizeGB":  212.04,
+    "comfyUIPath":  "E:\\WuxiaStudio\\engine\\ComfyUI\\ComfyUI\\models",
+    "scanDate":  "2026-04-19 19:27:07"
+}
