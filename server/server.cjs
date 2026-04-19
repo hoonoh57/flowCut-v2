@@ -511,6 +511,141 @@ app.post('/api/export', async (req, res) => {
 app.use('/output', express.static(OUTPUT_DIR));
 app.get('/api/open-output', (req, res) => { exec('explorer "' + OUTPUT_DIR + '"'); res.json({ success: true }); });
 
+
+
+// === AI Bridge Endpoints ===
+app.post('/api/ai/generate-text', async (req, res) => {
+  const { prompt, model, language } = req.body;
+  const ollamaUrl = 'http://localhost:11434';
+  const ollamaModel = model || 'gemma4:e4b';
+  
+  const systemPrompt = [
+    'You are a video text/subtitle generation assistant.',
+    'Generate text and suggest a preset ID from:',
+    'basic-white, basic-boxed, basic-outline, subtitle-classic, subtitle-news,',
+    'subtitle-minimal, subtitle-karaoke, title-big, title-neon, title-gold,',
+    'trending-highlight, trending-gradient-pop, trending-glow, trending-fire,',
+    'aesthetic-handwrite, aesthetic-vintage, aesthetic-minimal-modern,',
+    'lower-simple, lower-news, anim-bounce, anim-wave, anim-typewriter, anim-slide.',
+    'Respond in JSON: {"text": "...", "suggestedPreset": "..."}',
+    language ? 'Language: ' + language : 'Language: Korean',
+  ].join('\n');
+
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const resp = await fetch(ollamaUrl + '/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: ollamaModel, prompt, system: systemPrompt, stream: false, options: { temperature: 0.7, num_predict: 500 } }),
+      signal: AbortSignal.timeout(30000),
+    });
+    const data = await resp.json();
+    const responseText = data.response || '';
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return res.json({ success: true, text: parsed.text, suggestedPreset: parsed.suggestedPreset || 'basic-white' });
+    }
+    return res.json({ success: true, text: responseText.trim(), suggestedPreset: 'basic-white' });
+  } catch (err) {
+    return res.json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/ai/health', async (req, res) => {
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const resp = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(3000) });
+    const data = await resp.json();
+    res.json({ ollama: resp.ok, models: data.models?.map(m => m.name) || [] });
+  } catch (err) {
+    res.json({ ollama: false, error: err.message });
+  }
+});
+
+
+
+// === Script Automation API ===
+app.post('/api/script', async (req, res) => {
+  const { action, params } = req.body;
+  console.log('[SCRIPT] Action:', action, 'Params:', JSON.stringify(params || {}).substring(0, 200));
+
+  try {
+    switch (action) {
+      case 'addText': {
+        // Add a text clip via preset
+        // params: { presetId, text, trackId, startFrame, fps, x, y }
+        const result = {
+          success: true,
+          action: 'addText',
+          clip: {
+            presetId: params.presetId || 'basic-white',
+            text: params.text || 'Script Text',
+            trackId: params.trackId || 't1',
+            startFrame: params.startFrame || 0,
+            x: params.x, y: params.y,
+          },
+          message: 'Clip data ready — apply via client store',
+        };
+        return res.json(result);
+      }
+
+      case 'listPresets': {
+        // Return all available preset IDs
+        const presetFile = path.join(root, 'src/presets/textPresets.ts');
+        const content = fs.readFileSync(presetFile, 'utf8');
+        const ids = [];
+        const re = /id: '([^']+)'/g;
+        let m;
+        while ((m = re.exec(content)) !== null) ids.push(m[1]);
+        return res.json({ success: true, presets: ids });
+      }
+
+      case 'export': {
+        // Trigger export with params
+        return res.json({
+          success: true,
+          message: 'Use /api/export endpoint directly with full clip data',
+          endpoint: 'POST /api/export',
+        });
+      }
+
+      case 'aiGenerate': {
+        // Forward to AI generate
+        const fetch = (await import('node-fetch')).default;
+        const aiResp = await fetch('http://localhost:' + PORT + '/api/ai/generate-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: params.prompt, language: params.language }),
+        });
+        const aiData = await aiResp.json();
+        return res.json({ success: true, action: 'aiGenerate', ...aiData });
+      }
+
+      case 'batchAddText': {
+        // Add multiple text clips at once
+        // params: { clips: [{ presetId, text, startFrame, x, y }] }
+        const clips = (params.clips || []).map((c, i) => ({
+          presetId: c.presetId || 'basic-white',
+          text: c.text || 'Text ' + (i + 1),
+          startFrame: c.startFrame || i * 150,
+          x: c.x, y: c.y,
+        }));
+        return res.json({ success: true, action: 'batchAddText', clips, message: clips.length + ' clips prepared' });
+      }
+
+      case 'ping': {
+        return res.json({ success: true, action: 'ping', server: 'FlowCut v3', timestamp: Date.now() });
+      }
+
+      default:
+        return res.json({ success: false, error: 'Unknown action: ' + action, availableActions: ['addText', 'listPresets', 'export', 'aiGenerate', 'batchAddText', 'ping'] });
+    }
+  } catch (err) {
+    return res.json({ success: false, error: err.message });
+  }
+});
+
 const PORT = 3456;
 app.listen(PORT, () => {
   console.log('');

@@ -211,7 +211,34 @@ export function RightPanel() {
       {/* ════ VISUAL EFFECTS ════ */}
       {(sc.type === 'video' || sc.type === 'image') && (
         <>
-          {sectionHeader('Effects')}
+          
+
+        {/* Animation */}
+        {clip.type === 'text' && (
+          <>
+            {sectionHeader('Animation')}
+            {selectField('Type', 'animationType', clip.animationType || 'none', [
+              { value: 'none', label: 'None' },
+              { value: 'bounce', label: 'Bounce' },
+              { value: 'wave', label: 'Wave' },
+              { value: 'slide-left', label: 'Slide Left' },
+              { value: 'slide-right', label: 'Slide Right' },
+              { value: 'slide-up', label: 'Slide Up' },
+              { value: 'typewriter', label: 'Typewriter' },
+              { value: 'glow-pulse', label: 'Glow Pulse' },
+              { value: 'fade-in-char', label: 'Fade In (per char)' },
+            ])}
+            {clip.animationType && clip.animationType !== 'none' && (
+              <>
+                {numField('Speed', 'animationSpeed', clip.animationSpeed ?? 1, 0.1, 5, 0.1)}
+                {(clip.animationType === 'bounce' || clip.animationType === 'wave') &&
+                  numField('Amplitude', 'animationAmplitude', clip.animationAmplitude ?? 10, 1, 50, 1)}
+                {numField('Char Delay (ms)', 'animationDelay', clip.animationDelay ?? 50, 0, 500, 10)}
+              </>
+            )}
+          </>
+        )}
+        {sectionHeader('Effects')}
           {numField('Bright', 'brightness', sc.brightness, { min: -100, max: 100, unit: '%' })}
           {numField('Contrast', 'contrast', sc.contrast, { min: 0, max: 200, unit: '%' })}
           {numField('Saturate', 'saturation', sc.saturation, { min: 0, max: 200, unit: '%' })}

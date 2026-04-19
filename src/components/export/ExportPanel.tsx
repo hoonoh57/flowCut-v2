@@ -92,7 +92,7 @@ export const ExportPanel: React.FC = () => {
       canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (!ctx) continue;
-      renderTextClip(ctx, { ...clip, x: 0, y: 0 }, w, h);
+      renderTextClip(ctx, { ...clip, x: 0, y: 0, _animTime: 0.5 } as any, w, h);
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) continue;
       const formData = new FormData();

@@ -52,7 +52,7 @@ function getClipFilter(clip: Clip): string {
   return filters.length > 0 ? filters.join(' ') : 'none';
 }
 
-const TextCanvasPreview: React.FC<{ clip: Clip }> = ({ clip }) => {
+const TextCanvasPreview: React.FC<{ clip: Clip; currentFrame?: number; fps?: number }> = ({ clip, currentFrame = 0, fps = 30 }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
   React.useEffect(() => {
@@ -65,13 +65,16 @@ const TextCanvasPreview: React.FC<{ clip: Clip }> = ({ clip }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, w, h);
-    renderTextClip(ctx, { ...clip, x: 0, y: 0 }, w, h);
+    const localFrame = Math.max(0, currentFrame - (clip.startFrame || 0));
+    const duration = clip.durationFrames || 150;
+    const animTime = duration > 0 ? localFrame / duration : 0;
+    renderTextClip(ctx, { ...clip, x: 0, y: 0, _animTime: animTime } as any, w, h);
   }, [
     clip.text, clip.name, clip.fontSize, clip.fontFamily, clip.fontColor,
     clip.fontWeight, clip.fontStyle, clip.textAlign, clip.lineHeight,
     clip.textBgColor, clip.textBgOpacity, clip.borderColor, clip.borderWidth,
     clip.shadowColor, clip.shadowX, clip.shadowY, clip.width, clip.height,
-    clip.opacity,
+    clip.opacity, currentFrame,
   ]);
 
   return (
@@ -142,7 +145,7 @@ const ClipMedia: React.FC<{ clip: Clip; isPlaying: boolean; currentFrame: number
     );
   }
   if (clip.type === 'text') {
-    return <TextCanvasPreview clip={clip} />;
+    return <TextCanvasPreview clip={clip} currentFrame={currentFrame} fps={fps} />;
   }
   return null;
 };

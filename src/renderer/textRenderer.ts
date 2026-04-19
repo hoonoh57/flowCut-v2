@@ -26,6 +26,138 @@ function ensureKoreanFont(fontFamily: string, text: string): string {
   return fontFamily;
 }
 
+
+// ═══ Animation Engine ═══
+
+interface AnimContext {
+  type: string;
+  speed: number;
+  amplitude: number;
+  charDelay: number;
+  time: number;  // normalized 0~1 within clip duration
+  totalChars: number;
+}
+
+function easeOutBounce(t: number): number {
+  if (t < 1/2.75) return 7.5625*t*t;
+  if (t < 2/2.75) { t -= 1.5/2.75; return 7.5625*t*t + 0.75; }
+  if (t < 2.5/2.75) { t -= 2.25/2.75; return 7.5625*t*t + 0.9375; }
+  t -= 2.625/2.75; return 7.5625*t*t + 0.984375;
+}
+
+function getCharAnimation(charIdx: number, anim: AnimContext): { dx: number; dy: number; scale: number; alpha: number; rotation: number } {
+  const { type, speed, amplitude, charDelay, time, totalChars } = anim;
+  const charTime = Math.max(0, time * speed - (charIdx * charDelay / 1000));
+  const result = { dx: 0, dy: 0, scale: 1, alpha: 1, rotation: 0 };
+
+  switch (type) {
+    case 'bounce': {
+      const cycle = (charTime * 3) % 1;
+      result.dy = -amplitude * easeOutBounce(1 - Math.abs(2 * cycle - 1));
+      break;
+    }
+    case 'wave': {
+      result.dy = Math.sin(charTime * Math.PI * 4 + charIdx * 0.5) * amplitude;
+      break;
+    }
+    case 'slide-left': {
+      const progress = Math.min(1, charTime * 2);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      result.dx = (1 - ease) * 200;
+      result.alpha = ease;
+      break;
+    }
+    case 'slide-right': {
+      const progress = Math.min(1, charTime * 2);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      result.dx = -(1 - ease) * 200;
+      result.alpha = ease;
+      break;
+    }
+    case 'slide-up': {
+      const progress = Math.min(1, charTime * 2);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      result.dy = (1 - ease) * 100;
+      result.alpha = ease;
+      break;
+    }
+    case 'typewriter': {
+      const charAppearTime = charIdx * (charDelay / 1000);
+      result.alpha = time * speed > charAppearTime ? 1 : 0;
+      break;
+    }
+    case 'glow-pulse': {
+      // All chars glow together
+      const pulse = 0.6 + 0.4 * Math.sin(charTime * Math.PI * 3);
+      result.alpha = pulse;
+      break;
+    }
+    case 'fade-in-char': {
+      const progress = Math.min(1, charTime * 3);
+      result.alpha = progress;
+      result.scale = 0.5 + 0.5 * progress;
+      break;
+    }
+  }
+  return result;
+}
+
+function renderAnimatedText(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  lines: string[], clipX: number, clipY: number, clipW: number, clipH: number,
+  fontSize: number, lineHeight: number, textAlign: CanvasTextAlign,
+  fontColor: string, anim: AnimContext
+): void {
+  const totalTextHeight = lines.length * lineHeight;
+  const textStartY = clipY + (clipH - totalTextHeight) / 2;
+  let globalCharIdx = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const ly = textStartY + i * lineHeight;
+    const line = lines[i];
+
+    // Measure each character for positioning
+    let lineWidth = 0;
+    const charWidths: number[] = [];
+    for (const ch of line) {
+      const w = ctx.measureText(ch).width;
+      charWidths.push(w);
+      lineWidth += w;
+    }
+
+    // Calculate start X based on alignment
+    let startX: number;
+    if (textAlign === 'center') startX = clipX + (clipW - lineWidth) / 2;
+    else if (textAlign === 'right') startX = clipX + clipW - lineWidth - 8;
+    else startX = clipX + 8;
+
+    let curX = startX;
+    for (let j = 0; j < line.length; j++) {
+      const ch = line[j];
+      const aResult = getCharAnimation(globalCharIdx, anim);
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, aResult.alpha * (ctx.globalAlpha || 1)));
+
+      const cx = curX + charWidths[j] / 2 + aResult.dx;
+      const cy = ly + fontSize / 2 + aResult.dy;
+
+      if (aResult.scale !== 1 || aResult.rotation !== 0) {
+        ctx.translate(cx, cy);
+        if (aResult.rotation) ctx.rotate(aResult.rotation);
+        if (aResult.scale !== 1) ctx.scale(aResult.scale, aResult.scale);
+        ctx.fillText(ch, -charWidths[j] / 2, -fontSize / 2);
+      } else {
+        ctx.fillText(ch, curX + aResult.dx, ly + aResult.dy);
+      }
+
+      ctx.restore();
+      curX += charWidths[j];
+      globalCharIdx++;
+    }
+  }
+}
+
 export function renderTextClip(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   clip: Clip,
@@ -138,13 +270,31 @@ export function renderTextClip(
     }
   }
 
-  // Fill text
+  // Fill text (with optional animation)
   ctx.fillStyle = fontColor;
-  ctx.textAlign = textAlign;
-  for (let i = 0; i < lines.length; i++) {
-    const ly = textStartY + i * lineHeight;
-    const lx = getLineX(clipX, clipW, textAlign);
-    ctx.fillText(lines[i], lx, ly);
+  const animType = (clip as any).animationType || 'none';
+  const animTime = (clip as any)._animTime ?? 0.5; // 0~1, set by preview/export
+
+  if (animType && animType !== 'none') {
+    ctx.textAlign = 'left'; // Animation renders char-by-char
+    ctx.textBaseline = 'top';
+    const totalChars = lines.reduce((sum, l) => sum + l.length, 0);
+    const anim: AnimContext = {
+      type: animType,
+      speed: (clip as any).animationSpeed || 1,
+      amplitude: (clip as any).animationAmplitude || 10,
+      charDelay: (clip as any).animationDelay || 50,
+      time: animTime,
+      totalChars,
+    };
+    renderAnimatedText(ctx, lines, clipX, clipY, clipW, clipH, fontSize, lineHeight, textAlign, fontColor, anim);
+  } else {
+    ctx.textAlign = textAlign;
+    for (let i = 0; i < lines.length; i++) {
+      const ly = textStartY + i * lineHeight;
+      const lx = getLineX(clipX, clipW, textAlign);
+      ctx.fillText(lines[i], lx, ly);
+    }
   }
 
   ctx.restore();

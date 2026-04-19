@@ -52,6 +52,12 @@ export interface Clip {
   lineHeight?: number;
   letterSpacing?: number;
 
+  // --- Text Animation ---
+  animationType?: 'none' | 'bounce' | 'wave' | 'slide-left' | 'slide-right' | 'slide-up' | 'typewriter' | 'glow-pulse' | 'fade-in-char';
+  animationSpeed?: number;     // 0.5 ~ 3.0 (default 1.0)
+  animationAmplitude?: number; // pixels for bounce/wave (default 10)
+  animationDelay?: number;     // per-char delay in ms (default 50)
+
   locked: boolean;
   visible: boolean;
 }
