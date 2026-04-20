@@ -21,7 +21,51 @@ Rules:
 - All "text" values: Korean, short (3-8 words), emotionally engaging
 - Each scene must be visually DIFFERENT (vary: angle, subject, distance, lighting)
 - Include: wide shots, close-ups, aerial views, detail shots
-- ONLY output the JSON object, nothing else`
+- ONLY output the JSON object, nothing else`;
+
+export interface AIBridgeConfig {
+  provider: "ollama" | "openai" | "anthropic";
+  model?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  temperature?: number;
+}
+
+const DEFAULT_CONFIG: AIBridgeConfig = {
+  provider: "ollama",
+  model: "qwen3-coder:30b",
+  baseUrl: "http://localhost:11434",
+  temperature: 0.2
+};
+
+export class AIBridge {
+  private config: AIBridgeConfig;
+
+  constructor(config?: Partial<AIBridgeConfig>) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  async promptToScript(prompt: string): Promise<{ script?: any; error?: string }> {
+    try {
+      const raw = await this.callLLM(prompt);
+      // Try to parse JSON from LLM response
+      let cleaned = raw.trim();
+      // Remove markdown code fences if present
+      cleaned = cleaned.replace(/\`\`\`json?\n?/g, "").replace(/\`\`\`/g, "").trim();
+      // Find JSON object boundaries
+      const jsonStart = cleaned.indexOf("{");
+      const jsonEnd = cleaned.lastIndexOf("}");
+      if (jsonStart >= 0 && jsonEnd > jsonStart) {
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+      }
+      const parsed = JSON.parse(cleaned);
+      return { script: parsed };
+    } catch (err: any) {
+      return { error: err.message };
+    }
+  }
+
+  async generateFromPrompt(prompt: string): Promise<{ script?: any; error?: string }> {
     return this.promptToScript(prompt);
   }
 
@@ -35,19 +79,63 @@ Rules:
   }
 
   private async callOllama(prompt: string): Promise<string> {
-    const resp = await fetch((this.config.baseUrl || "http://localhost:11434") + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: this.config.model || "qwen3-coder:30b", messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }], stream: false, options: { temperature: this.config.temperature || 0.2, num_predict: 8192 } }) });
+    const resp = await fetch(
+      (this.config.baseUrl || "http://localhost:11434") + "/api/chat",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: this.config.model || "qwen3-coder:30b",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: prompt }
+          ],
+          stream: false,
+          options: { temperature: this.config.temperature || 0.2, num_predict: 8192 }
+        })
+      }
+    );
     const data = await resp.json();
     return (data.message?.content || data.response) || "";
   }
 
   private async callOpenAI(prompt: string): Promise<string> {
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (this.config.apiKey || "") }, body: JSON.stringify({ model: this.config.model || "gpt-4o", messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }], temperature: this.config.temperature || 0.3, max_tokens: 4096 }) });
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + (this.config.apiKey || "")
+      },
+      body: JSON.stringify({
+        model: this.config.model || "gpt-4o",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: prompt }
+        ],
+        temperature: this.config.temperature || 0.3,
+        max_tokens: 4096
+      })
+    });
     const data = await resp.json();
     return data.choices?.[0]?.message?.content || "";
   }
 
   private async callAnthropic(prompt: string): Promise<string> {
-    const resp = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": this.config.apiKey || "", "anthropic-version": "2023-06-01" }, body: JSON.stringify({ model: this.config.model || "claude-opus-4-6", max_tokens: 4096, system: SYSTEM_PROMPT, messages: [{ role: "user", content: prompt }], temperature: this.config.temperature || 0.3 }) });
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": this.config.apiKey || "",
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: this.config.model || "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: prompt }],
+        temperature: this.config.temperature || 0.3
+      })
+    });
     const data = await resp.json();
     return data.content?.[0]?.text || "";
   }
