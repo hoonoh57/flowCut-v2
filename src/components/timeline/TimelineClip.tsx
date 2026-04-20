@@ -271,7 +271,15 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
 
   /* --- MOVE --- */
   const onMoveStart = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation(); selectClip(clip.id); if (trackLocked) return;
+    e.stopPropagation();
+    // Select this clip + all group members
+    if (clip.groupId) {
+      const groupClips = allClips.filter(c => c.groupId === clip.groupId).map(c => c.id);
+      useEditorStore.getState().setSelectedClipIds(groupClips);
+    } else {
+      selectClip(clip.id);
+    }
+    if (trackLocked) return;
     const isAltDrag = e.altKey;
     let cloneId: string | null = null;
     
@@ -296,11 +304,26 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
       const currentClips = useEditorStore.getState().clips;
       if (snapEnabled) nf = snapToGrid(nf, currentClips, activeId, fps, zoom).frame;
       if (hasCollision({ ...clip, id: activeId } as any, nf, ntid, currentClips)) nf = findNearestFreeStart({ ...clip, id: activeId } as any, nf, ntid, currentClips);
-      setClips(currentClips.map(c => c.id === activeId ? { ...c, startFrame: nf, trackId: ntid } : c));
+      // Move this clip + all group members together
+      const deltaF = nf - dragRef.current.origFrame;
+      if (clip.groupId && !isAltDrag) {
+        const groupClips = currentClips.filter(c => c.groupId === clip.groupId);
+        const groupOrigStarts = new Map(allClips.filter(c => c.groupId === clip.groupId).map(c => [c.id, c.startFrame]));
+        setClips(currentClips.map(c => {
+          if (c.groupId === clip.groupId) {
+            const origStart = groupOrigStarts.get(c.id) ?? c.startFrame;
+            return { ...c, startFrame: Math.max(0, origStart + deltaF) };
+          }
+          return c;
+        }));
+      } else {
+        setClips(currentClips.map(c => c.id === activeId ? { ...c, startFrame: nf, trackId: ntid } : c));
+      }
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp);
       if (dragRef.current.moved) {
+        // Commit move for main clip (group moves are already applied via setClips)
         const cur = useEditorStore.getState().clips.find(c => c.id === activeId);
         if (cur && (cur.startFrame !== dragRef.current.origFrame || cur.trackId !== dragRef.current.origTrackId)) {
           dispatch(new MoveClipCommand(activeId, dragRef.current.origTrackId, dragRef.current.origFrame, cur.trackId, cur.startFrame));
@@ -340,6 +363,7 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
         position: 'absolute', left, top: 3, width: Math.max(width, 8), height,
         background: `${bg}${isSelected ? 'dd' : '99'}`,
         border: isSelected ? `2px solid ${bg}` : `1px solid ${bg}88`,
+        borderTop: clip.groupId ? `3px solid #${(clip.groupId || '').replace(/[^a-fA-F0-9]/g, '').slice(0, 6).padEnd(6, 'a')}` : undefined,
         borderRadius: 4, cursor, overflow: 'hidden',
         boxSizing: 'border-box', userSelect: 'none', zIndex: isSelected ? 10 : 1,
       }}
@@ -407,7 +431,7 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
           {durationSec}s
         </span>
         {clip.muted && <span style={{ marginLeft: 2, fontSize: 9 }}>{'\uD83D\uDD07'}</span>}
-        {clip.groupId && <span style={{ marginLeft: 2, fontSize: 8, background: '#' + (clip.groupId || '').slice(0, 6), width: 8, height: 8, borderRadius: '50%', display: 'inline-block' }} title={`Group: ${clip.groupId?.slice(0, 8)}`} />}
+        {clip.groupId && <span style={{ marginLeft: 2, fontSize: 8, color: '#' + (clip.groupId || '').replace(/[^a-fA-F0-9]/g, '').slice(0, 6).padEnd(6, 'a'), textShadow: '0 0 2px rgba(0,0,0,0.8)' }} title="Grouped">🔗</span>}
         {trackLocked && <span style={{ marginLeft: 2, fontSize: 10 }}>{'\uD83D\uDD12'}</span>}
       </div>
     </div>

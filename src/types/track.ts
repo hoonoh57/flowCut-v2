@@ -7,5 +7,7 @@ export interface Track {
   color: string;
   locked: boolean;
   visible: boolean;
-  grouped?: boolean;  // When true, ripple edits affect this track along with others
+  muted?: boolean;
+  solo?: boolean;
+  grouped?: boolean;
 }
