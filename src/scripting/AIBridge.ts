@@ -1,75 +1,27 @@
 import type { FlowScript } from "./flowscript.schema";
 
-const SYSTEM_PROMPT = [
-  "You are FlowCut AI. Generate a FlowScript JSON for video editing.",
-  "Output ONLY valid JSON. No markdown, no explanation, no code blocks.",
-  "",
-  "=== EXACT JSON STRUCTURE (follow precisely) ===",
-  "{",
-  "  \"version\": \"1.0\",",
-  "  \"project\": { \"width\": 1080, \"height\": 1920, \"fps\": 30 },",
-  "  \"media\": [",
-  "    { \"id\": \"bg1\", \"type\": \"image\", \"src\": \"ai://detailed image description in English\", \"aiWorkflow\": \"background-scene\" }",
-  "  ],",
-  "  \"tracks\": [",
-  "    { \"id\": \"v1\", \"type\": \"video\" },",
-  "    { \"id\": \"t1\", \"type\": \"text\" }",
-  "  ],",
-  "  \"clips\": [",
-  "    { \"type\": \"image\", \"mediaId\": \"bg1\", \"trackId\": \"v1\", \"startFrame\": 0, \"durationFrames\": 225, \"width\": 1080, \"height\": 1920 },",
-  "    { \"type\": \"text\", \"trackId\": \"t1\", \"startFrame\": 0, \"durationFrames\": 90, \"text\": \"Title\", \"textStyle\": { \"fontSize\": 64, \"fontColor\": \"#ffffff\" } }",
-  "  ],",
-  "  \"actions\": [",
-  "    { \"action\": \"autoSubtitle\", \"language\": \"ko\" },",
-  "    { \"action\": \"export\", \"format\": \"mp4\", \"quality\": \"high\", \"fileName\": \"output\" }",
-  "  ]",
-  "}",
-  "",
-  "=== CRITICAL RULES ===",
-  "1. clips is a TOP-LEVEL array, NOT nested inside tracks",
-  "2. media uses \"id\" (not \"mediaId\"), and \"src\" field (not \"prompt\" or \"aiPrompt\")",
-  "3. src for AI images: \"ai://description in English\"",
-  "4. Clips use startFrame + durationFrames (NOT endFrame, NOT start/duration)",
-  "5. 30fps: 30sec = 900 frames. Create 3-5 image scenes spread across frames",
-  "6. Available workflows: background-scene, title-card, anime-illustration, video-t2v, video-i2v",
-  "7. NO audio generation via AI. Skip audio media if no file exists",
-  "8. Text content in Korean for Korean topics",
-  "9. Each image media needs a DIFFERENT detailed English prompt",
-  "10. Clips MUST have width/height matching project dimensions"
-].join("\n")
+const SYSTEM_PROMPT = `You are a video scene planner. Given a topic, generate exactly 8 scenes for a 30-second vertical YouTube Shorts video.
 
-export interface AIBridgeConfig {
-  provider: "ollama" | "openai" | "anthropic";
-  model?: string;
-  apiKey?: string;
-  baseUrl?: string;
-  temperature?: number;
+RESPOND WITH ONLY A JSON OBJECT, no markdown, no explanation, no code fences.
+
+Format:
+{
+  "scenes": [
+    { "prompt": "detailed English image generation prompt, vertical 9:16 composition, cinematic", "text": "Korean overlay text, max 8 words" },
+    ...8 items total
+  ]
 }
 
-const DEFAULT_CONFIG: AIBridgeConfig = { provider: "ollama", model: "qwen3-coder:30b", baseUrl: "http://localhost:11434", temperature: 0.3 };
-
-export class AIBridge {
-  private config: AIBridgeConfig;
-  constructor(config?: Partial<AIBridgeConfig>) { this.config = { ...DEFAULT_CONFIG, ...config }; }
-
-  async promptToScript(userPrompt: string): Promise<{ script: FlowScript | null; raw: string; error?: string }> {
-    try {
-      const raw = await this.callLLM(userPrompt);
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return { script: null, raw, error: "No JSON found in response" };
-      const script = JSON.parse(jsonMatch[0]) as FlowScript;
-      if (!script.version || !script.project || !script.clips) return { script: null, raw, error: "Invalid FlowScript structure" };
-      script.version = "1.0";
-      if (!script.metadata) script.metadata = {};
-      script.metadata.prompt = userPrompt;
-      script.metadata.aiModel = this.config.model;
-      script.metadata.createdAt = new Date().toISOString();
-      return { script, raw };
-    } catch (err: any) { return { script: null, raw: "", error: err.message }; }
-  }
-
-  async refineScript(script: FlowScript, instruction: string): Promise<{ script: FlowScript | null; raw: string; error?: string }> {
-    const prompt = "Here is the current FlowScript:\n```json\n" + JSON.stringify(script, null, 2) + "\n```\nUser instruction: " + instruction + "\nModify and return the complete updated JSON.";
+Rules:
+- Scene 1: most dramatic/eye-catching moment (this is the hook, must stop scrolling)
+- Scene 2-3: establish context and setting
+- Scene 4-7: main content, each scene visually distinct
+- Scene 8: callback to scene 1 for loop effect
+- All "prompt" values: English, detailed, include lighting/mood/composition
+- All "text" values: Korean, short (3-8 words), emotionally engaging
+- Each scene must be visually DIFFERENT (vary: angle, subject, distance, lighting)
+- Include: wide shots, close-ups, aerial views, detail shots
+- ONLY output the JSON object, nothing else`
     return this.promptToScript(prompt);
   }
 

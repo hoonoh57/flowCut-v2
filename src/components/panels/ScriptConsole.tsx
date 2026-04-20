@@ -3,6 +3,7 @@ import { ScriptEngine } from "../../scripting/ScriptEngine";
 import { AIBridge } from "../../scripting/AIBridge";
 import { theme } from "../../styles/theme";
 import type { FlowScript } from "../../scripting/flowscript.schema";
+import { buildDirectorPlan, planToFlowScript } from "../../scripting/VideoDirector";
 
 export const ScriptConsole: React.FC = () => {
   const [mode, setMode] = useState<"prompt" | "script" | "log">("prompt");
@@ -20,14 +21,56 @@ export const ScriptConsole: React.FC = () => {
     if (!prompt.trim()) return;
     setLoading(true);
     addLog("Prompt: " + prompt);
+    addLog("Director 모드: LLM에 씬 배열 요청 중...");
     try {
       const bridge = new AIBridge(aiConfig);
       const result = await bridge.promptToScript(prompt);
-      if (result.script) {
-        setScriptJson(JSON.stringify(result.script, null, 2));
-        addLog("FlowScript generated (" + result.script.clips.length + " clips)");
-        setMode("script");
-      } else { addLog("ERROR: " + (result.error || "Failed")); }
+
+      // LLM 응답에서 scenes 배열 추출
+      let scenes: {prompt: string; text: string}[] = [];
+      try {
+        let raw = result.script || result.error || "";
+        if (typeof raw === "string") {
+          raw = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+          const parsed = JSON.parse(raw);
+          scenes = parsed.scenes || parsed;
+        } else if (raw && typeof raw === "object") {
+          // result.script가 이미 객체인 경우
+          if (Array.isArray(raw.scenes)) scenes = raw.scenes;
+          else if (Array.isArray(raw.clips)) {
+            // 기존 FlowScript 형식으로 온 경우 그대로 사용
+            setScriptJson(JSON.stringify(raw, null, 2));
+            addLog("FlowScript 직접 수신 (" + raw.clips.length + " clips) - 기존 방식");
+            setMode("script");
+            setLoading(false);
+            return;
+          } else if (Array.isArray(raw)) scenes = raw;
+        }
+      } catch (parseErr: any) {
+        addLog("JSON 파싱 시도: " + parseErr.message);
+      }
+
+      if (!Array.isArray(scenes) || scenes.length < 2) {
+        addLog("ERROR: 유효한 씬 배열을 받지 못함 (received: " + JSON.stringify(scenes).substring(0, 200) + ")");
+        setLoading(false);
+        return;
+      }
+
+      addLog("LLM 응답: " + scenes.length + "개 씬 수신");
+      scenes.forEach((s, i) => addLog("  [" + (i+1) + "] " + (s.text || "no text") + " | " + (s.prompt || "no prompt").substring(0, 60)));
+
+      // Director Plan 생성 (최소 8개 씬 보장)
+      const plan = buildDirectorPlan(scenes, { durationSec: 30, fps: 30 });
+      addLog("Director Plan: " + plan.beats.length + " beats (" + plan.templateId + ")");
+
+      // FlowScript 변환
+      const flowScript = planToFlowScript(plan);
+      addLog("FlowScript 생성: " + flowScript.media.length + " media, " + flowScript.clips.length + " clips");
+
+      setScriptJson(JSON.stringify(flowScript, null, 2));
+      setMode("script");
+      addLog("Director FlowScript 준비 완료. Execute를 눌러 실행하세요.");
+
     } catch (err: any) { addLog("ERROR: " + err.message); }
     setLoading(false);
   }, [prompt, aiConfig, addLog]);
