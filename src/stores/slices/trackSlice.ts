@@ -14,6 +14,7 @@ export interface TrackSlice {
   removeTrack: (id: string) => void;
   toggleTrackLock: (id: string) => void;
   toggleTrackVisibility: (id: string) => void;
+  toggleTrackGrouped: (id: string) => void;
 }
 
 export const createTrackSlice: StateCreator<EditorStore, [], [], TrackSlice> = (set, get) => ({
@@ -26,6 +27,9 @@ export const createTrackSlice: StateCreator<EditorStore, [], [], TrackSlice> = (
   }),
   toggleTrackLock: (id) => set({
     tracks: get().tracks.map((t) => t.id === id ? { ...t, locked: !t.locked } : t),
+  }),
+  toggleTrackGrouped: (id) => set({
+    tracks: get().tracks.map((t) => t.id === id ? { ...t, grouped: t.grouped === false ? true : false } : t),
   }),
   toggleTrackVisibility: (id) => set({
     tracks: get().tracks.map((t) => t.id === id ? { ...t, visible: !t.visible } : t),

@@ -65,7 +65,8 @@ export const TrackLane: React.FC<TrackLaneProps> = ({ track, trackIndex, totalWi
         width: media.width || 1920,
         height: media.height || 1080,
       });
-      dispatch(new AddClipCommand(clip));
+      const rm = useEditorStore.getState().rippleMode || false;
+      dispatch(new AddClipCommand(clip, rm));
     } catch (err) { console.error('DROP ERROR:', err, 'track:', track.id, track.type); }
   }, [track.id, pxPerFrame, fps, dispatch]);
 
@@ -73,6 +74,7 @@ export const TrackLane: React.FC<TrackLaneProps> = ({ track, trackIndex, totalWi
 
   return (
     <div
+      data-lane-area="true"
       onClick={onClickLane}
       onDrop={onDrop}
       onDragOver={onDragOver}

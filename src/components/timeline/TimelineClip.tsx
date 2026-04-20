@@ -134,6 +134,7 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
   const snapEnabled = useEditorStore(s => s.snapEnabled);
   const setClips = useEditorStore(s => s.setClips);
   const mediaItems = useEditorStore(s => s.mediaItems);
+  const rippleMode = useEditorStore(s => s.rippleMode);
 
   const isSelected = selectedIds.includes(clip.id);
   const [hoverEdge, setHoverEdge] = useState<'left' | 'right' | null>(null);
@@ -179,29 +180,112 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
   /* --- RESIZE --- */
   const onResizeStart = useCallback((e: React.MouseEvent, edge: 'left' | 'right') => {
     e.preventDefault(); e.stopPropagation(); selectClip(clip.id);
-    resizeRef.current = { startX: e.clientX, origStart: clip.startFrame, origDuration: clip.durationFrames, edge };
+    const origSourceStart = clip.sourceStart;
+    const origSourceDuration = clip.sourceDuration;
+    const origStart = clip.startFrame;
+    const origDuration = clip.durationFrames;
+    // Snapshot positions of all clips on same track (for ripple)
+    const trackClips = allClips.filter(c => c.trackId === clip.trackId && c.id !== clip.id);
+    const origPositions = trackClips.map(c => ({ id: c.id, startFrame: c.startFrame }));
+    
+    resizeRef.current = { startX: e.clientX, origStart, origDuration, edge };
+    
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - resizeRef.current.startX;
       const dF = Math.round(dx / pxPerFrame);
-      const { origStart, origDuration, edge: ed } = resizeRef.current;
       let ns = origStart, nd = origDuration;
-      if (ed === 'left') { ns = Math.max(0, origStart + dF); nd = origDuration - (ns - origStart); if (nd < MIN_DURATION_FRAMES) { nd = MIN_DURATION_FRAMES; ns = origStart + origDuration - MIN_DURATION_FRAMES; } }
-      else { nd = Math.max(MIN_DURATION_FRAMES, origDuration + dF); }
-      setClips(allClips.map(c => c.id === clip.id ? { ...c, startFrame: ns, durationFrames: nd } : c));
+      let newSrcStart = origSourceStart;
+      let newSrcDur = origSourceDuration;
+      const secPerFrame = 1 / fps;
+      
+      if (edge === 'left') {
+        ns = Math.max(0, origStart + dF);
+        const frameDelta = ns - origStart;
+        nd = origDuration - frameDelta;
+        if (nd < MIN_DURATION_FRAMES) {
+          nd = MIN_DURATION_FRAMES;
+          ns = origStart + origDuration - MIN_DURATION_FRAMES;
+        }
+        const srcDelta = (ns - origStart) * secPerFrame * (clip.speed || 1);
+        newSrcStart = Math.max(0, origSourceStart + srcDelta);
+        newSrcDur = origSourceDuration - srcDelta;
+        if (newSrcDur < 0.1) {
+          newSrcDur = 0.1;
+          newSrcStart = origSourceStart + origSourceDuration - 0.1;
+        }
+      } else {
+        nd = Math.max(MIN_DURATION_FRAMES, origDuration + dF);
+        newSrcDur = nd * secPerFrame * (clip.speed || 1);
+      }
+      
+      const rm = useEditorStore.getState().rippleMode || false;
+      const durationDelta = nd - origDuration;
+      
+      // Build updated clips array
+      let updated = allClips.map(c => {
+        if (c.id === clip.id) {
+          return { ...c, startFrame: ns, durationFrames: nd, sourceStart: newSrcStart, sourceDuration: newSrcDur };
+        }
+        return c;
+      });
+      
+      // Ripple: shift subsequent clips in real-time
+      if (rm && durationDelta !== 0) {
+        const origEnd = origStart + origDuration;
+        updated = updated.map(c => {
+          if (c.id === clip.id) return c;
+          if (c.trackId !== clip.trackId) return c;
+          // Find original position of this clip
+          const orig = origPositions.find(o => o.id === c.id);
+          if (!orig) return c;
+          // Shift clips that were originally at or after the original clip end
+          if (orig.startFrame >= origEnd) {
+            return { ...c, startFrame: Math.max(0, orig.startFrame + durationDelta) };
+          }
+          // Also push clips that the resize now overlaps
+          if (edge === 'right') {
+            const newEnd = ns + nd;
+            if (orig.startFrame >= origEnd && orig.startFrame < newEnd) {
+              return { ...c, startFrame: Math.max(0, newEnd) };
+            }
+          }
+          return c;
+        });
+      }
+      
+      setClips(updated);
     };
+    
     const onUp = () => {
-      window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
       const cur = useEditorStore.getState().clips.find(c => c.id === clip.id);
-      if (cur && (cur.startFrame !== resizeRef.current.origStart || cur.durationFrames !== resizeRef.current.origDuration))
-        dispatch(new ResizeClipCommand(clip.id, cur.startFrame, cur.durationFrames));
+      if (cur && (cur.startFrame !== origStart || cur.durationFrames !== origDuration)) {
+        const rm = useEditorStore.getState().rippleMode || false;
+        dispatch(new ResizeClipCommand(cur.id, cur.startFrame, cur.durationFrames, cur.sourceStart, cur.sourceDuration, rm));
+      }
     };
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
-  }, [clip, pxPerFrame, allClips, selectClip, dispatch, setClips]);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [clip, pxPerFrame, allClips, selectClip, dispatch, setClips, fps]);
 
   /* --- MOVE --- */
   const onMoveStart = useCallback((e: React.MouseEvent) => {
     e.stopPropagation(); selectClip(clip.id); if (trackLocked) return;
+    const isAltDrag = e.altKey;
+    let cloneId: string | null = null;
+    
+    // Alt+drag: create a clone immediately
+    if (isAltDrag) {
+      cloneId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 12);
+      const clone = { ...clip, id: cloneId, name: clip.name.replace(/ \(copy\)$/, '') + ' (copy)' };
+      setClips([...allClips, clone]);
+      selectClip(cloneId);
+    }
+    
+    const activeId = isAltDrag && cloneId ? cloneId : clip.id;
     dragRef.current = { startX: e.clientX, startY: e.clientY, origFrame: clip.startFrame, origTrackId: clip.trackId, moved: false };
+    
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - dragRef.current.startX, dy = ev.clientY - dragRef.current.startY;
       if (!dragRef.current.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
@@ -209,16 +293,23 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
       let nf = Math.max(0, dragRef.current.origFrame + Math.round(dx / pxPerFrame));
       const ti = Math.min(Math.max(0, trackIndex + Math.round(dy / TRACK_HEIGHT)), sortedTracks.length - 1);
       const ntid = sortedTracks[ti].id;
-      if (snapEnabled) nf = snapToGrid(nf, allClips, clip.id, fps, zoom).frame;
-      if (hasCollision(clip, nf, ntid, allClips)) nf = findNearestFreeStart(clip, nf, ntid, allClips);
-      setClips(allClips.map(c => c.id === clip.id ? { ...c, startFrame: nf, trackId: ntid } : c));
+      const currentClips = useEditorStore.getState().clips;
+      if (snapEnabled) nf = snapToGrid(nf, currentClips, activeId, fps, zoom).frame;
+      if (hasCollision({ ...clip, id: activeId } as any, nf, ntid, currentClips)) nf = findNearestFreeStart({ ...clip, id: activeId } as any, nf, ntid, currentClips);
+      setClips(currentClips.map(c => c.id === activeId ? { ...c, startFrame: nf, trackId: ntid } : c));
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp);
       if (dragRef.current.moved) {
-        const cur = useEditorStore.getState().clips.find(c => c.id === clip.id);
-        if (cur && (cur.startFrame !== dragRef.current.origFrame || cur.trackId !== dragRef.current.origTrackId))
-          dispatch(new MoveClipCommand(clip.id, dragRef.current.origTrackId, dragRef.current.origFrame, cur.trackId, cur.startFrame));
+        const cur = useEditorStore.getState().clips.find(c => c.id === activeId);
+        if (cur && (cur.startFrame !== dragRef.current.origFrame || cur.trackId !== dragRef.current.origTrackId)) {
+          dispatch(new MoveClipCommand(activeId, dragRef.current.origTrackId, dragRef.current.origFrame, cur.trackId, cur.startFrame));
+        }
+      } else if (isAltDrag && cloneId) {
+        // Didn't move, remove the clone
+        const currentClips = useEditorStore.getState().clips;
+        setClips(currentClips.filter(c => c.id !== cloneId));
+        selectClip(clip.id);
       }
     };
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
@@ -226,9 +317,15 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
 
   /* --- Mouse down: resize edges only, move otherwise --- */
   const onMouseDown = useCallback((e: React.MouseEvent) => {
+    // Ctrl+Click or Shift+Click = multi-select (don't start move/resize)
+    if ((e.ctrlKey || e.metaKey || e.shiftKey) && !e.altKey && !hoverEdge) {
+      e.stopPropagation();
+      selectClip(clip.id, true);
+      return;
+    }
     if (hoverEdge) onResizeStart(e, hoverEdge);
     else onMoveStart(e);
-  }, [hoverEdge, onResizeStart, onMoveStart]);
+  }, [hoverEdge, onResizeStart, onMoveStart, selectClip, clip.id]);
 
   const bg = TYPE_COLORS[clip.type] || theme.colors.accent.purple;
   const cursor = trackLocked ? 'not-allowed' : hoverEdge ? 'ew-resize' : 'grab';
@@ -310,6 +407,7 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
           {durationSec}s
         </span>
         {clip.muted && <span style={{ marginLeft: 2, fontSize: 9 }}>{'\uD83D\uDD07'}</span>}
+        {clip.groupId && <span style={{ marginLeft: 2, fontSize: 8, background: '#' + (clip.groupId || '').slice(0, 6), width: 8, height: 8, borderRadius: '50%', display: 'inline-block' }} title={`Group: ${clip.groupId?.slice(0, 8)}`} />}
         {trackLocked && <span style={{ marginLeft: 2, fontSize: 10 }}>{'\uD83D\uDD12'}</span>}
       </div>
     </div>

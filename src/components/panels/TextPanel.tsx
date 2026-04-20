@@ -27,6 +27,7 @@ import type { MediaItem } from '../../stores/slices/mediaSlice';
 
 export const TextPanel: React.FC = () => {
   const dispatch = useEditorStore((s) => s.dispatch);
+  const rippleMode = useEditorStore((s) => s.rippleMode);
   const tracks = useEditorStore((s) => s.tracks);
   const currentFrame = useEditorStore((s) => s.currentFrame);
   const fps = useEditorStore((s) => s.fps);
@@ -98,7 +99,7 @@ export const TextPanel: React.FC = () => {
         height: asset.height || 1080,
       }
     );
-    dispatch(new AddClipCommand(clip));
+    dispatch(new AddClipCommand(clip, rippleMode));
 
     return { mediaItem, clip };
   };
@@ -122,7 +123,7 @@ export const TextPanel: React.FC = () => {
     const clip = createTextClipFromPreset(
       preset.id, tTrack.id, currentFrame, fps, text || undefined
     );
-    dispatch(new AddClipCommand(clip));
+    dispatch(new AddClipCommand(clip, rippleMode));
   };
 
   const handleAIGenerate = async () => {
@@ -274,7 +275,7 @@ export const TextPanel: React.FC = () => {
       aiResult.suggestedPreset || 'basic-white',
       tTrack.id, currentFrame, fps, aiResult.text
     );
-    dispatch(new AddClipCommand(clip));
+    dispatch(new AddClipCommand(clip, rippleMode));
   };
 
   const getFilteredPresets = (category: PresetCategory): TextPreset[] => {

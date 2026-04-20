@@ -58,6 +58,7 @@ export interface Clip {
   animationAmplitude?: number; // pixels for bounce/wave (default 10)
   animationDelay?: number;     // per-char delay in ms (default 50)
 
+  groupId?: string;  // clips with same groupId move/delete together
   locked: boolean;
   visible: boolean;
 }
