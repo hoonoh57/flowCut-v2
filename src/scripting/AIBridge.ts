@@ -83,9 +83,9 @@ export class AIBridge {
   }
 
   private async callOllama(prompt: string): Promise<string> {
-    const resp = await fetch((this.config.baseUrl || "http://localhost:11434") + "/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: this.config.model || "qwen3-coder:30b", prompt, system: SYSTEM_PROMPT, stream: false, options: { temperature: this.config.temperature || 0.3, num_predict: 4096 } }) });
+    const resp = await fetch((this.config.baseUrl || "http://localhost:11434") + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: this.config.model || "qwen3-coder:30b", messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }], stream: false, options: { temperature: this.config.temperature || 0.2, num_predict: 8192 } }) });
     const data = await resp.json();
-    return data.response || "";
+    return (data.message?.content || data.response) || "";
   }
 
   private async callOpenAI(prompt: string): Promise<string> {

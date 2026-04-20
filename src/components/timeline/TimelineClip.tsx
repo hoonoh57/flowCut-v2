@@ -362,7 +362,9 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
       style={{
         position: 'absolute', left, top: 3, width: Math.max(width, 8), height,
         background: `${bg}${isSelected ? 'dd' : '99'}`,
-        border: isSelected ? `2px solid ${bg}` : `1px solid ${bg}88`,
+        borderBottom: isSelected ? `2px solid ${bg}` : `1px solid ${bg}88`,
+        borderLeft: isSelected ? `2px solid ${bg}` : `1px solid ${bg}88`,
+        borderRight: isSelected ? `2px solid ${bg}` : `1px solid ${bg}88`,
         borderTop: clip.groupId ? `3px solid #${(clip.groupId || '').replace(/[^a-fA-F0-9]/g, '').slice(0, 6).padEnd(6, 'a')}` : undefined,
         borderRadius: 4, cursor, overflow: 'hidden',
         boxSizing: 'border-box', userSelect: 'none', zIndex: isSelected ? 10 : 1,
