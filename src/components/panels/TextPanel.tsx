@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
-import { createTextClipFromPreset } from '../../utils/clipFactory';
+import { createTextClipFromPreset, createMediaClipFromItem } from '../../utils/clipFactory';
 import { AddClipCommand } from '../../stores/commands/AddClipCommand';
 import { theme } from '../../styles/theme';
 import {
@@ -19,8 +19,11 @@ import {
   analyzeAndPlan,
   executeComfyWorkflow,
   renderInfographic,
+  uploadInfographic,
   type CreativePlan,
+  type GeneratedAsset,
 } from '../../presets/aiCreativeDirector';
+import type { MediaItem } from '../../stores/slices/mediaSlice';
 
 export const TextPanel: React.FC = () => {
   const dispatch = useEditorStore((s) => s.dispatch);
@@ -39,6 +42,7 @@ export const TextPanel: React.FC = () => {
   const [creativePlan, setCreativePlan] = useState<CreativePlan | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionLog, setExecutionLog] = useState<string[]>([]);
+  const [generatedPreview, setGeneratedPreview] = useState<string | null>(null);
 
   useEffect(() => {
     checkOllamaHealth().then(setAiAvailable).catch(() => setAiAvailable(false));
@@ -46,6 +50,58 @@ export const TextPanel: React.FC = () => {
 
   const addTrack = useEditorStore((s) => s.addTrack);
   const addMediaItem = useEditorStore((s) => s.addMediaItem);
+
+  // ─── Helper: Add generated image to media panel + timeline ───
+  const addGeneratedAssetToTimeline = (asset: GeneratedAsset, label: string) => {
+    // 1. Create a MediaItem and register in media panel
+    const mediaItem: MediaItem = {
+      id: 'ai_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      name: label,
+      type: asset.type === 'video' ? 'video' : 'image',
+      url: asset.serverUrl,
+      objectUrl: asset.serverUrl,
+      localPath: asset.localPath,
+      duration: 5,            // default 5 seconds for images
+      width: asset.width,
+      height: asset.height,
+      size: 0,                // unknown at this point
+    };
+    addMediaItem(mediaItem);
+
+    // 2. Find or create an image/video track
+    let imgTrack = tracks.find(t => t.type === 'video');
+    if (!imgTrack) {
+      const newTrack = {
+        id: 'v' + Date.now(),
+        name: 'Video 1',
+        type: 'video' as const,
+        order: 100,
+        height: 60,
+        color: '#3b82f6',
+        locked: false,
+        visible: true,
+      };
+      addTrack(newTrack);
+      imgTrack = newTrack;
+    }
+
+    // 3. Create image clip on timeline at current playhead
+    const clip = createMediaClipFromItem(
+      mediaItem,
+      imgTrack.id,
+      currentFrame,
+      fps,
+      {
+        x: 0,
+        y: 0,
+        width: asset.width || 1920,
+        height: asset.height || 1080,
+      }
+    );
+    dispatch(new AddClipCommand(clip));
+
+    return { mediaItem, clip };
+  };
 
   const addPresetClip = (preset: TextPreset, text?: string) => {
     let tTrack = tracks.find(t => t.type === 'text');
@@ -76,13 +132,13 @@ export const TextPanel: React.FC = () => {
     setAiResult(null);
     setCreativePlan(null);
     setExecutionLog([]);
+    setGeneratedPreview(null);
     try {
       setExecutionLog(prev => [...prev, '🧠 AI가 요청을 분석 중...']);
       const plan = await analyzeAndPlan(aiPrompt);
       setCreativePlan(plan);
       setExecutionLog(prev => [...prev, '📋 계획: ' + plan.action, ...(plan.steps || []).map(s => '  → ' + s)]);
 
-      // For text-only, also set aiResult for backward compat
       if (plan.text) {
         setAiResult({ text: plan.text, suggestedPreset: plan.presetId || 'basic-white' });
       }
@@ -97,58 +153,98 @@ export const TextPanel: React.FC = () => {
     if (!creativePlan) return;
     setIsExecuting(true);
     setAiError('');
+    setGeneratedPreview(null);
+
     try {
       const plan = creativePlan;
 
+      // ━━━ TEXT ONLY ━━━
       if (plan.action === 'textOnly') {
         handleAIApply();
         setExecutionLog(prev => [...prev, '✅ 텍스트 클립 추가 완료']);
       }
+
+      // ━━━ COMPOSITE LAYOUT (Infographic / Table) ━━━
       else if (plan.action === 'compositeLayout' && plan.layoutData) {
         setExecutionLog(prev => [...prev, '🎨 인포그래픽 렌더링 중...']);
-        const canvas = renderInfographic(plan.layoutData, plan.width || 1920, plan.height || 1080);
-        const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/png'));
-        if (!blob) throw new Error('Canvas render failed');
+        const w = plan.width || 1920;
+        const h = plan.height || 1080;
+        const canvas = renderInfographic(plan.layoutData, w, h);
 
-        // Upload to server
-        const formData = new FormData();
-        formData.append('file', blob, 'infographic_' + Date.now() + '.png');
-        const uploadResp = await fetch('http://localhost:3456/api/upload', { method: 'POST', body: formData });
-        const uploadData = await uploadResp.json();
+        setExecutionLog(prev => [...prev, '📤 서버에 업로드 중...']);
+        const asset = await uploadInfographic(canvas, w, h);
 
-        if (uploadData.success) {
-          setExecutionLog(prev => [...prev, '✅ 인포그래픽 생성 및 업로드 완료', '  📁 ' + uploadData.servePath]);
-          // Could auto-add to timeline here
-        }
+        // Show preview
+        setGeneratedPreview(asset.serverUrl);
+
+        // Auto-add to media panel + timeline
+        const { clip } = addGeneratedAssetToTimeline(asset, '📊 ' + (plan.layoutData.title || 'Infographic'));
+        setExecutionLog(prev => [
+          ...prev,
+          '✅ 인포그래픽 생성 완료!',
+          '📁 미디어 패널에 추가됨',
+          '🎬 타임라인에 이미지 클립 삽입 (frame ' + clip.startFrame + ')',
+        ]);
       }
+
+      // ━━━ GENERATE IMAGE / IMAGE WITH TEXT ━━━
       else if (['generateImage', 'imageWithText'].includes(plan.action) && plan.workflow) {
         setExecutionLog(prev => [...prev, '🖼️ ComfyUI 이미지 생성 중... (' + plan.workflow + ')']);
-        const result = await executeComfyWorkflow(plan.workflow, {
+        setExecutionLog(prev => [...prev, '⏳ GPU에서 렌더링 중 — 10~30초 소요']);
+
+        const asset = await executeComfyWorkflow(plan.workflow, {
           positive: plan.comfyPrompt || plan.text || '',
+          negative: plan.comfyNegative,
           width: plan.width || 1280,
           height: plan.height || 720,
         });
 
-        if (result.imageUrl || result.servePath) {
-          setExecutionLog(prev => [...prev, '✅ 이미지 생성 완료!']);
-          setExecutionLog(prev => [...prev, '📁 저장됨: ' + (result.servePath || result.imageUrl)]);
+        // Show preview thumbnail
+        setGeneratedPreview(asset.serverUrl);
 
-          // If imageWithText, also add text clip
-          if (plan.action === 'imageWithText' && plan.text) {
-            handleAIApply();
-            setExecutionLog(prev => [...prev, '✅ 텍스트 오버레이 추가 완료']);
-          }
+        // Auto-add to media panel + timeline
+        const label = plan.action === 'imageWithText'
+          ? '🖼️+📝 ' + (plan.comfyPrompt || 'AI Image').substring(0, 30)
+          : '🖼️ ' + (plan.comfyPrompt || 'AI Image').substring(0, 30);
+
+        const { clip } = addGeneratedAssetToTimeline(asset, label);
+        setExecutionLog(prev => [
+          ...prev,
+          '✅ 이미지 생성 완료!',
+          '📁 미디어 패널에 등록됨: ' + asset.filename,
+          '🎬 타임라인에 삽입됨 (frame ' + clip.startFrame + ', 5초)',
+        ]);
+
+        // If imageWithText, also add text overlay clip
+        if (plan.action === 'imageWithText' && plan.text) {
+          handleAIApply();
+          setExecutionLog(prev => [...prev, '📝 텍스트 오버레이 클립 추가 완료']);
         }
       }
+
+      // ━━━ VIDEO GENERATION (placeholder) ━━━
       else if (['generateVideo', 'videoWithText'].includes(plan.action)) {
-        setExecutionLog(prev => [...prev, '🎬 영상 생성은 Wan2.2 워크플로우 필요 — 추후 지원 예정']);
-        // Placeholder for Wan2.2 video generation
+        setExecutionLog(prev => [...prev, '🎬 Wan2.2 영상 생성 시작...']);
+        const videoResult = await executeComfyWorkflow(plan.workflow || 'video-t2v', {
+          positive: plan.comfyPrompt || plan.text || '',
+          negative: plan.comfyNegative,
+          // width/height: use workflow default
+        }, (msg) => setExecutionLog(prev => [...prev, msg]));
+        if (videoResult.servePath) {
+          setGeneratedPreview(videoResult.serverUrl);
+          const { clip: vidClip } = addGeneratedAssetToTimeline(videoResult, '🎬 ' + (plan.comfyPrompt || 'AI Video').substring(0, 30));
+          setExecutionLog(prev => [...prev,
+            '✅ 영상 생성 완료!',
+            '📁 미디어 패널에 등록됨: ' + videoResult.filename,
+            '🎬 타임라인에 삽입됨 (frame ' + vidClip.startFrame + ')',
+          ]);
+        }
         if (plan.text) {
           handleAIApply();
         }
       }
 
-      setExecutionLog(prev => [...prev, '🎉 작업 완료!']);
+      setExecutionLog(prev => [...prev, '', '🎉 모든 작업 완료!']);
     } catch (err: any) {
       setAiError(err.message || 'Execution failed');
       setExecutionLog(prev => [...prev, '❌ 오류: ' + (err.message || 'unknown')]);
@@ -160,15 +256,25 @@ export const TextPanel: React.FC = () => {
   const handleAIApply = () => {
     if (!aiResult) return;
     let tTrack = tracks.find(t => t.type === 'text');
-    if (!tTrack) tTrack = tracks.find(t => t.type === 'video');
-    if (!tTrack) return;
+    if (!tTrack) {
+      const newTrack = {
+        id: 't' + Date.now(),
+        name: 'Text ' + (tracks.filter(t => t.type === 'text').length + 1),
+        type: 'text' as const,
+        order: 300,
+        height: 40,
+        color: '#f59e0b',
+        locked: false,
+        visible: true,
+      };
+      addTrack(newTrack);
+      tTrack = newTrack;
+    }
     const clip = createTextClipFromPreset(
       aiResult.suggestedPreset || 'basic-white',
       tTrack.id, currentFrame, fps, aiResult.text
     );
     dispatch(new AddClipCommand(clip));
-    setAiResult(null);
-    setAiPrompt('');
   };
 
   const getFilteredPresets = (category: PresetCategory): TextPreset[] => {
@@ -302,7 +408,7 @@ export const TextPanel: React.FC = () => {
             </div>
 
             <textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder={'AI에게 텍스트 생성 요청...\n예: 요리 영상 감성 제목'}
+              placeholder={'AI Creative Director에게 요청...\n예: 게임 채널 인트로 배경 이미지\n예: 프로그래밍 언어 비교표\n예: 유튜브 강의용 제목 카드'}
               rows={3}
               style={{ padding: 8, borderRadius: theme.radius.sm,
                 border: '1px solid ' + theme.colors.border.default,
@@ -317,16 +423,22 @@ export const TextPanel: React.FC = () => {
                 cursor: aiProcessing ? 'wait' : 'pointer',
                 fontSize: theme.fontSize.sm, fontWeight: 600,
                 opacity: (!aiPrompt.trim() || aiProcessing) ? 0.5 : 1 }}
-            >{aiProcessing ? '생성 중...' : '🤖 AI 텍스트 생성'}</button>
+            >{aiProcessing ? '🧠 분석 중...' : '🤖 AI 분석 & 계획'}</button>
 
-            {aiError && <div style={{ fontSize: 10, color: theme.colors.accent.red }}>Error: {aiError}</div>}
+            {aiError && (
+              <div style={{ fontSize: 10, color: theme.colors.accent.red, padding: '4px 8px',
+                background: theme.colors.accent.red + '11', borderRadius: theme.radius.sm }}>
+                ❌ {aiError}
+              </div>
+            )}
 
+            {/* AI Text Result (for textOnly / imageWithText) */}
             {aiResult && (
               <div style={{ padding: 10, borderRadius: theme.radius.md,
                 background: theme.colors.bg.elevated,
                 border: '1px solid ' + theme.colors.accent.purple + '33' }}>
                 <div style={{ fontSize: 10, color: theme.colors.accent.purple, fontWeight: 600, marginBottom: 6 }}>
-                  AI 생성 결과
+                  📝 AI 생성 텍스트
                 </div>
                 <div style={{ fontSize: theme.fontSize.md, color: theme.colors.text.primary,
                   marginBottom: 8, padding: 8, background: theme.colors.bg.tertiary,
@@ -334,25 +446,28 @@ export const TextPanel: React.FC = () => {
                   {aiResult.text}
                 </div>
                 <div style={{ fontSize: 10, color: theme.colors.text.muted, marginBottom: 8 }}>
-                  추천: <strong style={{ color: theme.colors.accent.blue }}>{aiResult.suggestedPreset}</strong>
+                  추천 프리셋: <strong style={{ color: theme.colors.accent.blue }}>{aiResult.suggestedPreset}</strong>
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={handleAIApply}
-                    style={{ flex: 1, padding: '6px 10px', borderRadius: theme.radius.sm,
-                      background: theme.colors.accent.blue, color: '#fff',
-                      border: 'none', cursor: 'pointer', fontSize: theme.fontSize.sm, fontWeight: 600 }}
-                  >타임라인에 추가</button>
-                  <button onClick={() => setAiResult(null)}
-                    style={{ padding: '6px 10px', borderRadius: theme.radius.sm,
-                      background: theme.colors.bg.hover, color: theme.colors.text.secondary,
-                      border: '1px solid ' + theme.colors.border.default,
-                      cursor: 'pointer', fontSize: theme.fontSize.sm }}
-                  >취소</button>
-                </div>
+                {/* Only show manual "add text" button for textOnly */}
+                {creativePlan?.action === 'textOnly' && (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => { handleAIApply(); setExecutionLog(prev => [...prev, '✅ 텍스트 클립 추가 완료']); }}
+                      style={{ flex: 1, padding: '6px 10px', borderRadius: theme.radius.sm,
+                        background: theme.colors.accent.blue, color: '#fff',
+                        border: 'none', cursor: 'pointer', fontSize: theme.fontSize.sm, fontWeight: 600 }}
+                    >타임라인에 추가</button>
+                    <button onClick={() => { setAiResult(null); setCreativePlan(null); }}
+                      style={{ padding: '6px 10px', borderRadius: theme.radius.sm,
+                        background: theme.colors.bg.hover, color: theme.colors.text.secondary,
+                        border: '1px solid ' + theme.colors.border.default,
+                        cursor: 'pointer', fontSize: theme.fontSize.sm }}
+                    >취소</button>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Creative Plan */}
+            {/* Creative Plan (for non-textOnly actions) */}
             {creativePlan && creativePlan.action !== 'textOnly' && (
               <div style={{ padding: 10, borderRadius: theme.radius.md,
                 background: theme.colors.bg.elevated,
@@ -365,8 +480,15 @@ export const TextPanel: React.FC = () => {
                   {creativePlan.workflow && <span> | 워크플로우: <strong>{creativePlan.workflow}</strong></span>}
                 </div>
                 {creativePlan.comfyPrompt && (
-                  <div style={{ fontSize: 10, color: theme.colors.text.muted, marginBottom: 6, fontStyle: 'italic' }}>
-                    ComfyUI: {creativePlan.comfyPrompt.substring(0, 80)}...
+                  <div style={{ fontSize: 10, color: theme.colors.text.muted, marginBottom: 8,
+                    fontStyle: 'italic', padding: '4px 6px', background: theme.colors.bg.tertiary,
+                    borderRadius: theme.radius.sm }}>
+                    🎨 "{creativePlan.comfyPrompt.substring(0, 100)}{creativePlan.comfyPrompt.length > 100 ? '...' : ''}"
+                  </div>
+                )}
+                {creativePlan.layoutData && (
+                  <div style={{ fontSize: 10, color: theme.colors.text.muted, marginBottom: 8 }}>
+                    📊 {creativePlan.layoutData.type}: {creativePlan.layoutData.title}
                   </div>
                 )}
                 <button onClick={executeCreativePlan} disabled={isExecuting}
@@ -376,19 +498,35 @@ export const TextPanel: React.FC = () => {
                     cursor: isExecuting ? 'wait' : 'pointer',
                     fontSize: theme.fontSize.sm, fontWeight: 600,
                     opacity: isExecuting ? 0.6 : 1 }}
-                >{isExecuting ? '⏳ 실행 중...' : '🚀 제작 실행'}</button>
+                >{isExecuting ? '⏳ 생성 중... (GPU 작업)' : '🚀 제작 실행 → 타임라인에 자동 삽입'}</button>
+              </div>
+            )}
+
+            {/* Generated Image Preview */}
+            {generatedPreview && (
+              <div style={{ borderRadius: theme.radius.md, overflow: 'hidden',
+                border: '2px solid ' + theme.colors.accent.green }}>
+                <div style={{ fontSize: 9, padding: '4px 8px', background: theme.colors.accent.green + '22',
+                  color: theme.colors.accent.green, fontWeight: 600 }}>
+                  ✅ 생성된 이미지 (타임라인에 추가됨)
+                </div>
+                <img src={generatedPreview} alt="AI Generated"
+                  style={{ width: '100%', height: 'auto', display: 'block' }}
+                  crossOrigin="anonymous"
+                />
               </div>
             )}
 
             {/* Execution Log */}
             {executionLog.length > 0 && (
               <div style={{ padding: 8, borderRadius: theme.radius.sm,
-                background: theme.colors.bg.tertiary, maxHeight: 150, overflowY: 'auto' }}>
+                background: theme.colors.bg.tertiary, maxHeight: 180, overflowY: 'auto' }}>
                 {executionLog.map((log, i) => (
                   <div key={i} style={{
                     fontSize: 10, lineHeight: 1.6, fontFamily: 'monospace',
                     color: log.includes('✅') || log.includes('🎉') ? theme.colors.accent.green
                       : log.includes('❌') ? theme.colors.accent.red
+                      : log.includes('⏳') || log.includes('📤') ? theme.colors.accent.blue
                       : theme.colors.text.secondary
                   }}>{log}</div>
                 ))}
@@ -396,7 +534,7 @@ export const TextPanel: React.FC = () => {
             )}
 
             <div style={{ fontSize: 9, color: theme.colors.text.muted, lineHeight: 1.5, marginTop: 4 }}>
-              LLM: ollama run gemma4:e4b | ComfyUI: 127.0.0.1:8188
+              LLM: ollama (gemma4:e4b) | ComfyUI: 127.0.0.1:8188 | GPU: RTX 4070
             </div>
           </div>
         )}

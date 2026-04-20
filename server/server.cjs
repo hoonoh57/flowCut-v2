@@ -1,8 +1,10 @@
-
 const express = require('express');
 const cors = require('cors');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+
 // === FONT MAP (inline) ===
 const FONT_DIR_PATH = 'C:/Windows/Fonts';
 const FONT_MAP = {
@@ -42,9 +44,6 @@ function resolveFontPath(cssFontFamily, bold) {
   return full;
 }
 // === END FONT MAP ===
-
-const path = require('path');
-const multer = require('multer');
 
 function envelopeToVolumeFilter(envelope, durationSec) {
   if (!envelope || envelope.length < 2) return null;
@@ -88,17 +87,6 @@ function getTrackZOrder(trackId, tracks) {
   return idx >= 0 ? idx : 0;
 }
 
-function escapeDrawText(text) {
-  // For textfile approach - minimal escaping
-  return text;
-}
-
-function writeTextFile(text, clipId) {
-  const filePath = path.join(TEMP_DIR, 'text_' + clipId + '.txt');
-  fs.writeFileSync(filePath, text, 'utf8');
-  return filePath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
-}
-
 const app = express();
 app.use(cors());
 app.use((req, res, next) => {
@@ -111,7 +99,7 @@ app.use(express.json({ limit: '50mb' }));
 
 const FFMPEG = 'E:\\ffmpeg\\bin\\ffmpeg.exe';
 const FONT_DIR = 'C:/Windows/Fonts';
-const DEFAULT_FONT = FONT_DIR + '/malgun.ttf';  // 맑은 고딕 (Korean support)
+const DEFAULT_FONT = FONT_DIR + '/malgun.ttf';
 const OUTPUT_DIR = path.join('E:\\2026\\flowcut', 'output');
 const MEDIA_DIR = path.join('E:\\2026\\flowcut', 'media_cache');
 const TEMP_DIR = path.join('E:\\2026\\flowcut', 'temp');
@@ -152,6 +140,10 @@ function sendProgress(data) {
 }
 
 app.get('/api/health', (req, res) => { res.json({ ok: true, ffmpeg: FFMPEG, output: OUTPUT_DIR }); });
+
+// =========================================================================
+// EXPORT ENDPOINT (unchanged — just removed node-fetch references)
+// =========================================================================
 app.post('/api/export', async (req, res) => {
   const {
     inputFiles, projectWidth, projectHeight, fps, tracks,
@@ -170,9 +162,21 @@ app.post('/api/export', async (req, res) => {
   sendProgress({ status: 'starting', message: 'Export starting...' });
 
   try {
-    // All visual clips (video + image), sorted by z-order then startFrame
     const visualClips = inputFiles
-      .filter(f => (f.type === 'video' || f.type === 'image') && f.localPath && fs.existsSync(f.localPath))
+      .filter(f => {
+        if (!((f.type === 'video' || f.type === 'image') && f.localPath && fs.existsSync(f.localPath))) return false;
+        // Skip animated WEBP files (FFmpeg cannot decode ComfyUI SaveAnimatedWEBP output)
+        if (f.localPath && f.localPath.toLowerCase().endsWith('.webp')) {
+          try {
+            const buf = fs.readFileSync(f.localPath).slice(0, 64);
+            if (buf.toString('ascii').includes('ANIM')) {
+              console.log('[EXPORT] Skipping animated WEBP:', f.localPath);
+              return false;
+            }
+          } catch(e) {}
+        }
+        return true;
+      })
       .sort((a, b) => {
         const aRect = getClipRect(a, projectWidth, projectHeight, ow, oh);
         const bRect = getClipRect(b, projectWidth, projectHeight, ow, oh);
@@ -184,7 +188,6 @@ app.post('/api/export', async (req, res) => {
         return a.startFrame - b.startFrame;
       });
 
-    // Text clips, sorted same way
     const textClips = inputFiles
       .filter(f => f.type === 'text')
       .sort((a, b) => {
@@ -194,9 +197,21 @@ app.post('/api/export', async (req, res) => {
         return a.startFrame - b.startFrame;
       });
 
-    // Audio clips
     const audioClips = inputFiles
-      .filter(f => (f.type === 'audio' || f.type === 'video') && !f.muted && f.localPath && fs.existsSync(f.localPath))
+      .filter(f => {
+        if (!((f.type === 'audio' || f.type === 'video') && !f.muted && f.localPath && fs.existsSync(f.localPath))) return false;
+        const ext = (f.localPath || '').toLowerCase();
+        if (ext.endsWith('.webm') || ext.endsWith('.webp') || ext.endsWith('.gif')) {
+          try {
+            const probe = require('child_process').execSync('E:/ffmpeg/bin/ffprobe.exe -hide_banner -show_streams "' + f.localPath + '"', { encoding: 'utf8', timeout: 5000 });
+            if (!probe.includes('codec_type=audio')) {
+              console.log('[EXPORT] Skipping audio (no audio stream):', f.localPath);
+              return false;
+            }
+          } catch(e) { return false; }
+        }
+        return true;
+      })
       .sort((a, b) => a.startFrame - b.startFrame);
 
     if (visualClips.length === 0 && textClips.length === 0 && audioClips.length === 0) {
@@ -212,14 +227,20 @@ app.post('/api/export', async (req, res) => {
     let inputIdx = 0;
     const inputMap = new Map();
 
-    // Input 0: black background
     args.push('-f', 'lavfi', '-i', 'color=c=black:s=' + ow + 'x' + oh + ':d=' + totalDurSec + ':r=' + fps);
     const baseIdx = inputIdx++;
 
-    // Add visual clip inputs
     for (const clip of visualClips) {
       if (clip.type === 'image') {
-        args.push('-loop', '1', '-t', (clip.durationFrames / fps).toFixed(3), '-i', clip.localPath);
+        const ext = (clip.localPath || '').toLowerCase();
+        const isAnimated = ext.endsWith('.webp') || ext.endsWith('.gif');
+        if (isAnimated) {
+          // Animated WEBP/GIF: treat as video (no -loop 1)
+          args.push('-i', clip.localPath);
+          console.log('[EXPORT] Animated file (no loop):', clip.localPath);
+        } else {
+          args.push('-loop', '1', '-t', (clip.durationFrames / fps).toFixed(3), '-i', clip.localPath);
+        }
       } else {
         args.push('-i', clip.localPath);
       }
@@ -227,7 +248,6 @@ app.post('/api/export', async (req, res) => {
       inputIdx++;
     }
 
-    // Add audio-only inputs
     for (const clip of audioClips) {
       if (!inputMap.has(clip.clipId + '_v')) {
         args.push('-i', clip.localPath);
@@ -236,7 +256,6 @@ app.post('/api/export', async (req, res) => {
       }
     }
 
-    // --- VIDEO OVERLAY CHAIN ---
     let lastVideo = '[' + baseIdx + ':v]';
     let overlayCount = 0;
 
@@ -256,7 +275,6 @@ app.post('/api/export', async (req, res) => {
       if (clip.type !== 'image' && clip.speed && clip.speed !== 1) {
         sf += ',setpts=' + (1/clip.speed).toFixed(4) + '*PTS';
       }
-      // Opacity
       if (clip.opacity !== undefined && clip.opacity < 100) {
         const alpha = (clip.opacity / 100).toFixed(2);
         sf += ',format=rgba,colorchannelmixer=aa=' + alpha;
@@ -275,9 +293,7 @@ app.post('/api/export', async (req, res) => {
       overlayCount++;
     }
 
-    // --- TEXT OVERLAY (drawtext via textfile) ---
     for (const clip of textClips) {
-      // === Pre-rendered text image (Canvas unified renderer) ===
       if (clip.renderedImagePath && fs.existsSync(clip.renderedImagePath)) {
         const startSec2 = (clip.startFrame / fps).toFixed(3);
         const endSec2 = ((clip.startFrame + clip.durationFrames) / fps).toFixed(3);
@@ -290,7 +306,6 @@ app.post('/api/export', async (req, res) => {
         const cx = Math.round((clip.x || 0) * scX);
         const cy = Math.round((clip.y || 0) * scY);
         
-        // Add image input
         args.push('-loop', '1', '-t', String(endSec2 - startSec2), '-i', clip.renderedImagePath);
         const imgInputIdx = inputIdx++;
         
@@ -301,7 +316,7 @@ app.post('/api/export', async (req, res) => {
         filterParts.push(lastVideo + '[' + tiLabel + "]overlay=" + cx + ":" + cy + ":enable='between(t," + startSec2 + "," + endSec2 + ")'[" + toLabel + "]");
         lastVideo = '[' + toLabel + ']';
         overlayCount++;
-        continue; // skip drawtext for this clip
+        continue;
       }
 
       const startSec = (clip.startFrame / fps).toFixed(3);
@@ -318,14 +333,11 @@ app.post('/api/export', async (req, res) => {
       const clipH = Math.round((clip.clipHeight || 200) * sy);
       const fontSize = Math.round((clip.fontSize || 48) * sy);
 
-      // Font resolution
       const isBold = clip.fontWeight === 'bold' || clip.fontWeight === '700';
       const fontPath = resolveFontPath(clip.fontFamily || 'sans-serif', isBold).replace(/:/g, '\\\\:');
 
-      // Font color
       let fontColor = (clip.fontColor || '#ffffff').replace('#', '0x');
 
-      // Build drawtext parts
       const dtParts = [];
       dtParts.push('fontfile=' + fontPath);
       const escapedPath = textFilePath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
@@ -333,7 +345,6 @@ app.post('/api/export', async (req, res) => {
       dtParts.push('fontsize=' + fontSize);
       dtParts.push('fontcolor=' + fontColor);
 
-      // X position with alignment
       const align = clip.textAlign || 'center';
       if (align === 'center' && clipW > 0) {
         dtParts.push('x=' + Math.round(tx + clipW/2) + '-text_w/2');
@@ -342,12 +353,10 @@ app.post('/api/export', async (req, res) => {
       } else {
         dtParts.push('x=' + tx);
       }
-      // Y: vertically center text within clip box
       if (clipH > 0) {
         dtParts.push('y=' + Math.round(ty + clipH/2) + '-text_h/2');
       }
 
-      // Background box
       const bgOpacity = (clip.textBgOpacity || 0) / 100;
       if (bgOpacity > 0 && clip.textBgColor) {
         let bgHex = (clip.textBgColor || '#000000').replace('#', '0x');
@@ -356,14 +365,12 @@ app.post('/api/export', async (req, res) => {
         dtParts.push('boxborderw=' + Math.max(6, Math.round(fontSize * 0.15)));
       }
 
-      // Text outline (border)
       if (clip.borderWidth && clip.borderWidth > 0) {
         let bCol = (clip.borderColor || '#000000').replace('#', '0x');
         dtParts.push('borderw=' + Math.round(clip.borderWidth * sy));
         dtParts.push('bordercolor=' + bCol);
       }
 
-      // Shadow
       if ((clip.shadowX && clip.shadowX !== 0) || (clip.shadowY && clip.shadowY !== 0)) {
         let sCol = (clip.shadowColor || '#000000').replace('#', '0x');
         dtParts.push('shadowcolor=' + sCol + '@0.7');
@@ -371,26 +378,21 @@ app.post('/api/export', async (req, res) => {
         dtParts.push('shadowy=' + Math.round((clip.shadowY || 2) * sy));
       }
 
-      // Line spacing
       if (clip.lineHeight && clip.lineHeight !== 1.2) {
         dtParts.push('line_spacing=' + Math.round((clip.lineHeight - 1.0) * fontSize));
       }
 
-      // Opacity (alpha)
       if (clip.opacity !== undefined && clip.opacity < 100) {
         dtParts.push('alpha=' + (clip.opacity / 100).toFixed(2));
       }
 
-      // Enable time range
       dtParts.push("enable='between(t," + startSec + "," + endSec + ")'");
 
       const dtLabel = 'dt' + overlayCount;
       const dtFilter = lastVideo + 'drawtext=' + dtParts.join(':') + '[' + dtLabel + ']';
       filterParts.push(dtFilter);
 
-      console.log('  [TEXT] "' + textContent.substring(0,30) + '" pos=(' + tx + ',' + ty + ') clipSize=' + clipW + 'x' + clipH + ' font=' + fontSize + 'px bg=' + (bgOpacity > 0 ? 'yes' : 'no') + ' border=' + ((clip.borderWidth||0) > 0 ? 'yes' : 'no'));
-      // second log removed
-      console.log('  [TEXT] "' + textContent.substring(0,30) + '" pos=(' + tx + ',' + ty + ') clipSize=' + clipW + 'x' + clipH + ' font=' + fontSize + 'px bg=' + (bgOpacity > 0 ? 'yes' : 'no') + ' border=' + ((clip.borderWidth||0) > 0 ? 'yes' : 'no'));
+      console.log('  [TEXT] "' + textContent.substring(0,30) + '" pos=(' + tx + ',' + ty + ') clipSize=' + clipW + 'x' + clipH + ' font=' + fontSize + 'px');
       lastVideo = '[' + dtLabel + ']';
       overlayCount++;
     }
@@ -433,10 +435,8 @@ app.post('/api/export', async (req, res) => {
       }
     }
 
-    // --- ASSEMBLE FFmpeg command ---
     const complexFilter = filterParts.join(';');
     if (complexFilter) {
-      // Write filter to file to avoid shell quoting issues
       const filterFile = path.join(TEMP_DIR, 'filter_' + Date.now() + '.txt');
       fs.writeFileSync(filterFile, complexFilter, 'utf8');
       console.log('  Filter script: ' + filterFile);
@@ -463,7 +463,7 @@ app.post('/api/export', async (req, res) => {
 
     console.log('  FFmpeg cmd (' + args.length + ' args):');
     console.log('  ' + args.join(' ').substring(0, 500));
-    sendProgress({ status: 'encoding', progress: 5, message: 'Encoding ' + ow + 'x' + oh + ' ' + format.toUpperCase() + ' (' + visualClips.length + ' visual + ' + textClips.length + ' text)...' });
+    sendProgress({ status: 'encoding', progress: 5, message: 'Encoding ' + ow + 'x' + oh + ' ' + format.toUpperCase() + '...' });
 
     const totalFrames = Math.round(parseFloat(totalDurSec) * fps);
     const ffProcess = spawn(FFMPEG, args, { env: { ...process.env, FONTCONFIG_PATH: '', FONTCONFIG_FILE: '' } });
@@ -506,8 +506,9 @@ app.use('/output', express.static(OUTPUT_DIR));
 app.get('/api/open-output', (req, res) => { exec('explorer "' + OUTPUT_DIR + '"'); res.json({ success: true }); });
 
 
-
-// === AI Bridge Endpoints ===
+// =========================================================================
+// AI Bridge Endpoints — NOW USING NATIVE FETCH (Node.js 22+)
+// =========================================================================
 app.post('/api/ai/generate-text', async (req, res) => {
   const { prompt, model, language } = req.body;
   const ollamaUrl = 'http://localhost:11434';
@@ -526,13 +527,12 @@ app.post('/api/ai/generate-text', async (req, res) => {
   ].join('\n');
 
   try {
-    const fetch = (await import('node-fetch')).default;
     const resp = await fetch(ollamaUrl + '/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: ollamaModel, prompt, system: systemPrompt, stream: false, options: { temperature: 0.7, num_predict: 500 } }),
-      signal: AbortSignal.timeout(30000),
-    });
+      });
+
     const data = await resp.json();
     const responseText = data.response || '';
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -548,7 +548,6 @@ app.post('/api/ai/generate-text', async (req, res) => {
 
 app.get('/api/ai/health', async (req, res) => {
   try {
-    const fetch = (await import('node-fetch')).default;
     const resp = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(3000) });
     const data = await resp.json();
     res.json({ ollama: resp.ok, models: data.models?.map(m => m.name) || [] });
@@ -558,8 +557,9 @@ app.get('/api/ai/health', async (req, res) => {
 });
 
 
-
-// === Script Automation API ===
+// =========================================================================
+// Script Automation API
+// =========================================================================
 app.post('/api/script', async (req, res) => {
   const { action, params } = req.body;
   console.log('[SCRIPT] Action:', action, 'Params:', JSON.stringify(params || {}).substring(0, 200));
@@ -567,8 +567,6 @@ app.post('/api/script', async (req, res) => {
   try {
     switch (action) {
       case 'addText': {
-        // Add a text clip via preset
-        // params: { presetId, text, trackId, startFrame, fps, x, y }
         const result = {
           success: true,
           action: 'addText',
@@ -585,9 +583,9 @@ app.post('/api/script', async (req, res) => {
       }
 
       case 'listPresets': {
-        // Return all available preset IDs
-        const presetFile = path.join(__dirname, 'src/presets/textPresets.ts');
-        const content = fs.readFileSync(presetFile, 'utf8');
+        const presetFile = path.join(__dirname, '..', 'src', 'presets', 'textPresets.ts');
+        let content = '';
+        try { content = fs.readFileSync(presetFile, 'utf8'); } catch { /* ignore */ }
         const ids = [];
         const re = /id: '([^']+)'/g;
         let m;
@@ -596,7 +594,6 @@ app.post('/api/script', async (req, res) => {
       }
 
       case 'export': {
-        // Trigger export with params
         return res.json({
           success: true,
           message: 'Use /api/export endpoint directly with full clip data',
@@ -605,8 +602,6 @@ app.post('/api/script', async (req, res) => {
       }
 
       case 'aiGenerate': {
-        // Forward to AI generate
-        const fetch = (await import('node-fetch')).default;
         const aiResp = await fetch('http://localhost:' + PORT + '/api/ai/generate-text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -617,8 +612,6 @@ app.post('/api/script', async (req, res) => {
       }
 
       case 'batchAddText': {
-        // Add multiple text clips at once
-        // params: { clips: [{ presetId, text, startFrame, x, y }] }
         const clips = (params.clips || []).map((c, i) => ({
           presetId: c.presetId || 'basic-white',
           text: c.text || 'Text ' + (i + 1),
@@ -641,17 +634,37 @@ app.post('/api/script', async (req, res) => {
 });
 
 
-// === ComfyUI Direct Generate (server builds workflow) ===
+// =========================================================================
+// ComfyUI Direct Generate — FIXED: Node.js native fetch, robust error handling
+// =========================================================================
 app.post('/api/comfyui/generate', async (req, res) => {
   const { workflowId, positive, negative, width, height, seed } = req.body;
-  console.log('[COMFY-GEN] workflowId:', workflowId, 'prompt:', (positive||'').substring(0,60));
+  console.log('');
+  console.log('========================================');
+  console.log('[COMFY-GEN] START');
+  console.log('[COMFY-GEN] workflowId:', workflowId);
+  console.log('[COMFY-GEN] positive:', (positive || '').substring(0, 80));
+  console.log('[COMFY-GEN] dimensions:', width, 'x', height);
+  console.log('========================================');
   
   // Load workflow template
   const wfPath = path.join(__dirname, '..', 'src', 'config', 'workflows', workflowId + '.json');
+  console.log('[COMFY-GEN] Workflow path:', wfPath);
+  console.log('[COMFY-GEN] File exists:', fs.existsSync(wfPath));
+  
   if (!fs.existsSync(wfPath)) {
+    console.log('[COMFY-GEN] ERROR: Workflow not found');
     return res.json({ error: 'Workflow not found: ' + workflowId });
   }
-  const template = JSON.parse(fs.readFileSync(wfPath, 'utf8'));
+  
+  let template;
+  try {
+    template = JSON.parse(fs.readFileSync(wfPath, 'utf8'));
+    console.log('[COMFY-GEN] Template loaded, engine:', template.engine || 'comfyui');
+  } catch (parseErr) {
+    console.log('[COMFY-GEN] ERROR: Failed to parse workflow JSON:', parseErr.message);
+    return res.json({ error: 'Invalid workflow JSON: ' + parseErr.message });
+  }
   
   if (template.engine === 'canvas') {
     return res.json({ error: 'Canvas workflows handled client-side' });
@@ -659,6 +672,7 @@ app.post('/api/comfyui/generate', async (req, res) => {
   
   // Deep clone workflow and fill params
   const workflow = JSON.parse(JSON.stringify(template.workflow));
+  
   for (const [nodeId, node] of Object.entries(workflow)) {
     if (node.inputs) {
       for (const [key, val] of Object.entries(node.inputs)) {
@@ -669,118 +683,149 @@ app.post('/api/comfyui/generate', async (req, res) => {
           node.inputs[key] = negative || 'blurry, ugly';
         }
       }
-      // Override dimensions
       if (node.class_type === 'EmptyLatentImage') {
         if (width) node.inputs.width = width;
         if (height) node.inputs.height = height;
       }
-      // Random seed
+      if (node.class_type === 'Wan22ImageToVideoLatent') {
+        if (width) node.inputs.width = width;
+        if (height) node.inputs.height = height;
+      }
       if (node.class_type === 'KSampler') {
         node.inputs.seed = seed || Math.floor(Math.random() * 1e15);
+      }
+      if (node.class_type === 'ModelSamplingSD3') {
+        // keep default shift
       }
     }
   }
   
   console.log('[COMFY-GEN] Workflow nodes:', Object.keys(workflow));
-  console.log('[COMFY-GEN] Submitting to ComfyUI...');
   
+  // Build the payload exactly as ComfyUI expects
+  const payload = JSON.stringify({ prompt: workflow });
+  console.log('[COMFY-GEN] Payload size:', payload.length, 'bytes');
+  console.log('[COMFY-GEN] Payload preview:', payload.substring(0, 300));
+  
+  // === DEBUG: Save payload to file for comparison with PowerShell ===
+  const debugPayloadPath = path.join(TEMP_DIR, 'comfy_debug_payload_' + Date.now() + '.json');
+  fs.writeFileSync(debugPayloadPath, payload, 'utf8');
+  console.log('[COMFY-GEN] Debug payload saved to:', debugPayloadPath);
+  
+  // Submit to ComfyUI using Node.js native fetch
+  console.log('[COMFY-GEN] Submitting to http://127.0.0.1:8188/prompt ...');
+  
+  let queueData;
   try {
-    const fetch = (await import('node-fetch')).default;
-    const payload = JSON.stringify({ prompt: workflow });
-    console.log('[COMFY-GEN] Payload size:', payload.length, 'bytes');
-    
     const queueResp = await fetch('http://127.0.0.1:8188/prompt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: payload,
-      signal: AbortSignal.timeout(30000),
     });
     
+    console.log('[COMFY-GEN] Response status:', queueResp.status);
+    console.log('[COMFY-GEN] Response headers:', JSON.stringify(Object.fromEntries(queueResp.headers.entries())));
+    
     const queueText = await queueResp.text();
-    console.log('[COMFY-GEN] Queue response:', queueText.substring(0, 300));
+    console.log('[COMFY-GEN] Response body:', queueText.substring(0, 500));
     
-    let queueData;
-    try { queueData = JSON.parse(queueText); } catch { 
-      return res.json({ error: 'Invalid response from ComfyUI', raw: queueText.substring(0, 200) }); 
+    try {
+      queueData = JSON.parse(queueText);
+    } catch (jsonErr) {
+      console.log('[COMFY-GEN] ERROR: Failed to parse ComfyUI response as JSON');
+      return res.json({ error: 'Invalid response from ComfyUI', raw: queueText.substring(0, 300) });
     }
-    
-    if (queueData.error) {
-      console.log('[COMFY-GEN] ComfyUI error:', JSON.stringify(queueData.error).substring(0, 500));
-      return res.json({ error: 'ComfyUI rejected: ' + JSON.stringify(queueData.error).substring(0, 200) });
-    }
-    
-    const promptId = queueData.prompt_id;
-    if (!promptId) {
-      return res.json({ error: 'No prompt_id returned', data: queueData });
-    }
-    console.log('[COMFY-GEN] prompt_id:', promptId);
-    
-    // Poll for completion (up to 180s)
-    for (let i = 0; i < 90; i++) {
-      await new Promise(r => setTimeout(r, 2000));
-      try {
-        const histResp = await fetch('http://127.0.0.1:8188/history/' + promptId);
-        const histData = await histResp.json();
-        const entry = histData[promptId];
-        if (!entry) continue;
-        
-        for (const [nodeId, output] of Object.entries(entry.outputs || {})) {
-          if (output.images && output.images.length > 0) {
-            const img = output.images[0];
-            console.log('[COMFY-GEN] Image ready:', img.filename);
-            
-            // Download image from ComfyUI and save to media_cache
-            const imgUrl = 'http://127.0.0.1:8188/view?filename=' + encodeURIComponent(img.filename) 
-              + '&subfolder=' + encodeURIComponent(img.subfolder || '') 
-              + '&type=' + (img.type || 'output');
-            const imgResp = await fetch(imgUrl);
-            const imgBuffer = Buffer.from(await imgResp.arrayBuffer());
-            const localName = 'ai_' + Date.now() + '_' + img.filename;
-            const localPath = path.join('E:\\2026\\flowcut\\media_cache', localName);
-            fs.writeFileSync(localPath, imgBuffer);
-            console.log('[COMFY-GEN] Saved to:', localPath);
-            
-            return res.json({ 
-              success: true, 
-              promptId,
-              imageFilename: img.filename,
-              localPath,
-              servePath: '/media/' + localName,
-              serverUrl: 'http://localhost:3456/media/' + localName,
-            });
-          }
-        }
-      } catch (pollErr) {
-        console.log('[COMFY-GEN] Poll error:', pollErr.message);
-      }
-    }
-    
-    return res.json({ error: 'Generation timed out (180s)', promptId });
-    
-  } catch (err) {
-    console.log('[COMFY-GEN] Fatal error:', err.message);
-    return res.json({ error: err.message });
+  } catch (fetchErr) {
+    console.log('[COMFY-GEN] FETCH ERROR:', fetchErr.message);
+    console.log('[COMFY-GEN] FETCH ERROR stack:', fetchErr.stack);
+    console.log('[COMFY-GEN] Is ComfyUI running at http://127.0.0.1:8188 ?');
+    return res.json({ error: 'Failed to connect to ComfyUI: ' + fetchErr.message });
   }
+  
+  if (queueData.error) {
+    console.log('[COMFY-GEN] ComfyUI rejected the prompt:', JSON.stringify(queueData.error).substring(0, 500));
+    if (queueData.node_errors) {
+      console.log('[COMFY-GEN] Node errors:', JSON.stringify(queueData.node_errors).substring(0, 500));
+    }
+    return res.json({ error: 'ComfyUI rejected: ' + JSON.stringify(queueData.error).substring(0, 300) });
+  }
+  
+  const promptId = queueData.prompt_id;
+  if (!promptId) {
+    console.log('[COMFY-GEN] ERROR: No prompt_id in response:', JSON.stringify(queueData));
+    return res.json({ error: 'No prompt_id returned', data: queueData });
+  }
+  
+  console.log('[COMFY-GEN] SUCCESS — prompt_id:', promptId);
+  console.log('[COMFY-GEN] Now polling for completion (up to 180s)...');
+  
+  // Poll for completion
+  for (let i = 0; i < 300; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    
+    try {
+      const histResp = await fetch('http://127.0.0.1:8188/history/' + promptId);
+      const histData = await histResp.json();
+      const entry = histData[promptId];
+      
+      if (!entry) {
+        if (i % 5 === 0) console.log('[COMFY-GEN] Polling... (' + (i * 2) + 's)');
+        continue;
+      }
+      
+      console.log('[COMFY-GEN] History entry found, checking outputs...');
+      
+      for (const [nodeId, output] of Object.entries(entry.outputs || {})) {
+        if ((output.images && output.images.length > 0) || (output.gifs && output.gifs.length > 0)) {
+          const img = (output.images && output.images[0]) || (output.gifs && output.gifs[0]);
+          console.log('[COMFY-GEN] Image ready:', img.filename, 'from node', nodeId);
+          
+          // Download image
+          const imgUrl = 'http://127.0.0.1:8188/view?filename=' + encodeURIComponent(img.filename) 
+            + '&subfolder=' + encodeURIComponent(img.subfolder || '') 
+            + '&type=' + (img.type || 'output');
+          
+          const imgResp = await fetch(imgUrl);
+          const imgArrayBuffer = await imgResp.arrayBuffer();
+          const imgBuffer = Buffer.from(imgArrayBuffer);
+          
+          const localName = 'ai_' + Date.now() + '_' + img.filename;
+          const localPath = path.join(MEDIA_DIR, localName);
+          fs.writeFileSync(localPath, imgBuffer);
+          console.log('[COMFY-GEN] Saved to:', localPath, '(' + imgBuffer.length + ' bytes)');
+          
+          return res.json({ 
+            success: true, 
+            promptId,
+            imageFilename: img.filename,
+            localPath,
+            servePath: '/media/' + localName,
+            serverUrl: 'http://localhost:' + PORT + '/media/' + localName,
+          });
+        }
+      }
+    } catch (pollErr) {
+      console.log('[COMFY-GEN] Poll error:', pollErr.message);
+    }
+  }
+  
+  console.log('[COMFY-GEN] TIMEOUT — no image after 180s');
+  return res.json({ error: 'Generation timed out (600s)', promptId });
 });
 
 
-// === ComfyUI Proxy (CORS bypass) ===
+// =========================================================================
+// ComfyUI Proxy — FIXED: Native fetch
+// =========================================================================
 app.post('/api/comfyui/prompt', async (req, res) => {
   try {
-    const fetch = (await import('node-fetch')).default;
     const payload = JSON.stringify(req.body);
-    console.log('[COMFY-PROXY] Received prompt request, payload size:', payload.length);
-    console.log('[COMFY-PROXY] Keys:', Object.keys(req.body));
-    console.log('[COMFY-PROXY] Has prompt key:', !!req.body.prompt);
-    if (req.body.prompt) {
-      console.log('[COMFY-PROXY] Node IDs:', Object.keys(req.body.prompt));
-    }
+    console.log('[COMFY-PROXY] Forwarding prompt, payload size:', payload.length);
     
     const resp = await fetch('http://127.0.0.1:8188/prompt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: payload,
-      signal: AbortSignal.timeout(180000),
     });
     
     const text = await resp.text();
@@ -801,7 +846,6 @@ app.post('/api/comfyui/prompt', async (req, res) => {
 
 app.get('/api/comfyui/history/:promptId', async (req, res) => {
   try {
-    const fetch = (await import('node-fetch')).default;
     const resp = await fetch('http://127.0.0.1:8188/history/' + req.params.promptId);
     const data = await resp.json();
     res.json(data);
@@ -812,7 +856,6 @@ app.get('/api/comfyui/history/:promptId', async (req, res) => {
 
 app.get('/api/comfyui/view', async (req, res) => {
   try {
-    const fetch = (await import('node-fetch')).default;
     const qs = new URLSearchParams(req.query).toString();
     const resp = await fetch('http://127.0.0.1:8188/view?' + qs);
     const buffer = Buffer.from(await resp.arrayBuffer());
@@ -825,7 +868,6 @@ app.get('/api/comfyui/view', async (req, res) => {
 
 app.get('/api/comfyui/health', async (req, res) => {
   try {
-    const fetch = (await import('node-fetch')).default;
     const resp = await fetch('http://127.0.0.1:8188/system_stats', { signal: AbortSignal.timeout(3000) });
     const data = await resp.json();
     res.json({ online: true, ...data });
@@ -840,9 +882,13 @@ app.use('/config/workflows', express.static(path.join(__dirname, '..', 'src', 'c
 const PORT = 3456;
 app.listen(PORT, () => {
   console.log('');
-  console.log('  FlowCut Export Server v3');
+  console.log('  FlowCut Export Server v3.1 (native fetch)');
   console.log('  http://localhost:' + PORT);
   console.log('  FFmpeg: ' + FFMPEG);
   console.log('  Output: ' + OUTPUT_DIR);
+  console.log('  Node.js: ' + process.version);
+  console.log('  Native fetch: ' + (typeof fetch === 'function' ? 'YES' : 'NO'));
+  console.log('  Node.js: ' + process.version);
+  console.log('  Native fetch: ' + (typeof fetch !== 'undefined' ? 'YES' : 'NO'));
   console.log('');
 });

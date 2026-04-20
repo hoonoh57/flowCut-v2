@@ -8,25 +8,25 @@ import { generateTextViaLLM, getAIBridgeConfig } from './aiTextBridge';
    ═══════════════════════════════════════════ */
 
 export type CreativeAction =
-  | 'textOnly'           // Just text with preset
-  | 'generateImage'      // ComfyUI image generation
-  | 'generateVideo'      // Wan2.2 video generation
-  | 'compositeLayout'    // Table/infographic (Canvas)
-  | 'imageWithText'      // Image + text overlay
-  | 'videoWithText';     // Video + text overlay
+  | 'textOnly'
+  | 'generateImage'
+  | 'generateVideo'
+  | 'compositeLayout'
+  | 'imageWithText'
+  | 'videoWithText';
 
 export interface CreativePlan {
   action: CreativeAction;
   text?: string;
   presetId?: string;
-  workflow?: string;        // workflow template ID
-  comfyPrompt?: string;     // positive prompt for ComfyUI
+  workflow?: string;
+  comfyPrompt?: string;
   comfyNegative?: string;
-  layoutData?: LayoutData;  // for infographic/table
+  layoutData?: LayoutData;
   width?: number;
   height?: number;
-  duration?: number;        // seconds, for video
-  steps?: string[];         // human-readable plan description
+  duration?: number;
+  steps?: string[];
 }
 
 export interface LayoutData {
@@ -41,6 +41,18 @@ export interface LayoutData {
     accentColor?: string;
     fontSize?: number;
   };
+}
+
+/* Result returned after ComfyUI or Canvas generation */
+export interface GeneratedAsset {
+  type: 'image' | 'video' | 'infographic';
+  servePath: string;       // e.g. "/media/ai_123_image.png"
+  serverUrl: string;       // e.g. "http://localhost:3456/media/ai_123_image.png"
+  localPath: string;       // e.g. "E:\\2026\\flowcut\\media_cache\\ai_123_image.png"
+  filename: string;        // e.g. "ai_123_image.png"
+  width: number;
+  height: number;
+  promptId?: string;
 }
 
 const DIRECTOR_SYSTEM_PROMPT = `You are an AI Creative Director for a video editor.
@@ -67,6 +79,8 @@ AVAILABLE WORKFLOWS:
 - "anime-illustration": Anime/illustration style art (novaAnimeXL)
 - "upscale-image": AI upscale existing image (4x-UltraSharp)
 - "infographic-layout": Table/chart/infographic (Canvas, instant)
+- "video-t2v": Text-to-Video (Wan2.2 5B, 480x272, ~1-3min)
+- "video-i2v": Image-to-Video (Wan2.2 5B, needs reference image)
 
 AVAILABLE TEXT PRESETS:
 - trending-highlight: RED box, YouTube thumbnails, strong impact
@@ -82,7 +96,8 @@ DECISION RULES:
 - "유튜브 썸네일/인트로" → action: imageWithText, workflow: title-card
 - "배경 만들어줘" → action: generateImage, workflow: background-scene
 - "비교표/설명자료/테이블" → action: compositeLayout
-- "애니메이션/움직이는 영상" → action: generateVideo (note: requires Wan2.2)
+- "텍스트로 영상 만들어" → action: generateVideo, workflow: video-t2v
+- "이미지를 영상으로/움직이게" → action: generateVideo, workflow: video-i2v
 - "강한 제목/타이틀만" → action: textOnly
 - "인포그래픽" → action: compositeLayout with layoutData
 - General image request → action: generateImage
@@ -91,9 +106,39 @@ For compositeLayout, provide layoutData with type, title, columns, rows.
 For comfyPrompt, write in ENGLISH, be descriptive, include style keywords.
 Always include "steps" array explaining what will be created.`;
 
+
+/* --- VRAM Management --- */
+
+export async function unloadOllamaFromVRAM(): Promise<boolean> {
+  const config = getAIBridgeConfig();
+  try {
+    const resp = await fetch(config.ollamaUrl + '/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: config.ollamaModel, prompt: '', keep_alive: 0 }),
+      signal: AbortSignal.timeout(5000),
+    });
+    console.log('[VRAM] Ollama unloaded:', resp.ok);
+    return resp.ok;
+  } catch { return false; }
+}
+
+export async function reloadOllamaToVRAM(): Promise<boolean> {
+  const config = getAIBridgeConfig();
+  try {
+    const resp = await fetch(config.ollamaUrl + '/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: config.ollamaModel, prompt: 'hi', keep_alive: '10m', stream: false, options: { num_predict: 1 } }),
+      signal: AbortSignal.timeout(30000),
+    });
+    console.log('[VRAM] Ollama reloaded:', resp.ok);
+    return resp.ok;
+  } catch { return false; }
+}
 export async function analyzeAndPlan(userPrompt: string): Promise<CreativePlan> {
   const config = getAIBridgeConfig();
-  
+
   try {
     const resp = await fetch(config.ollamaUrl + '/api/generate', {
       method: 'POST',
@@ -112,11 +157,9 @@ export async function analyzeAndPlan(userPrompt: string): Promise<CreativePlan> 
     const data = await resp.json();
     const responseText = data.response || '';
 
-    // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const plan = JSON.parse(jsonMatch[0]) as CreativePlan;
-      // Validate action
       const validActions: CreativeAction[] = [
         'textOnly', 'generateImage', 'generateVideo',
         'compositeLayout', 'imageWithText', 'videoWithText'
@@ -126,7 +169,6 @@ export async function analyzeAndPlan(userPrompt: string): Promise<CreativePlan> 
       return plan;
     }
 
-    // Fallback
     return {
       action: 'textOnly',
       text: responseText.trim() || userPrompt,
@@ -139,42 +181,109 @@ export async function analyzeAndPlan(userPrompt: string): Promise<CreativePlan> 
   }
 }
 
-// Execute ComfyUI workflow
+/**
+ * Execute ComfyUI workflow and return asset info
+ */
 export async function executeComfyWorkflow(
   workflowId: string,
-  params: Record<string, any>
-): Promise<{ imageUrl?: string; videoUrl?: string; localPath?: string; servePath?: string }> {
-  // Use server-side generate endpoint (handles ComfyUI communication)
-  const resp = await fetch('http://localhost:3456/api/comfyui/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workflowId,
-      positive: params.positive || '',
-      negative: params.negative || 'blurry, ugly, distorted, low quality',
-      width: params.width,
-      height: params.height,
-    }),
-    signal: AbortSignal.timeout(200000), // 200s total
-  });
+  params: Record<string, any>,
+  onLog?: (msg: string) => void,
+): Promise<GeneratedAsset> {
+  const log = onLog || (() => {});
 
-  const data = await resp.json();
-  
-  if (data.error) {
-    throw new Error('ComfyUI: ' + data.error);
+  // 1) Ollama VRAM 해제
+  log('🧹 Ollama VRAM 해제 중...');
+  const unloaded = await unloadOllamaFromVRAM();
+  if (unloaded) {
+    log('✅ GPU 메모리 확보 완료');
+    await new Promise(r => setTimeout(r, 2000));
+  } else {
+    log('⚠️ Ollama 언로드 건너뜀');
   }
-  
-  if (data.success) {
-    return {
-      imageUrl: data.serverUrl,
-      localPath: data.localPath,
-      servePath: data.servePath,
+
+  // 2) ComfyUI 실행
+  log('🖼️ ComfyUI 이미지 생성 중... (' + workflowId + ')');
+  let asset: GeneratedAsset;
+  try {
+    const resp = await fetch('http://localhost:3456/api/comfyui/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workflowId,
+        positive: params.positive || '',
+        negative: params.negative || 'blurry, ugly, distorted, low quality',
+        width: params.width,
+        height: params.height,
+      }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error('ComfyUI: ' + data.error);
+    if (!data.success) throw new Error('ComfyUI: unexpected response');
+
+    const servePath = data.servePath || '';
+    asset = {
+      type: (servePath.endsWith('.webm') || servePath.endsWith('.mp4')) ? 'video' : 'image',
+      servePath,
+      serverUrl: data.serverUrl || ('http://localhost:3456' + servePath),
+      localPath: data.localPath || '',
+      filename: servePath.split('/').pop() || data.imageFilename || 'ai_image.png',
+      width: params.width || 1280,
+      height: params.height || 720,
+      promptId: data.promptId,
     };
+  } catch (err) {
+    log('⚠️ 오류 발생 — Ollama 복구 중...');
+    await reloadOllamaToVRAM();
+    throw err;
   }
-  
-  throw new Error('ComfyUI: unexpected response');
+
+  // 3) Ollama 복구
+  log('🔄 Ollama 모델 복구 중...');
+  await reloadOllamaToVRAM();
+  log('✅ AI 대화 복구 완료');
+
+  return asset;
 }
-// Render infographic/table layout to PNG via Canvas
+
+/**
+ * Upload a canvas-rendered infographic and return asset info
+ */
+export async function uploadInfographic(
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number
+): Promise<GeneratedAsset> {
+  const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/png'));
+  if (!blob) throw new Error('Canvas render failed');
+
+  const formData = new FormData();
+  const filename = 'infographic_' + Date.now() + '.png';
+  formData.append('file', blob, filename);
+
+  const uploadResp = await fetch('http://localhost:3456/api/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  const uploadData = await uploadResp.json();
+
+  if (!uploadData.success) {
+    throw new Error('Upload failed: ' + (uploadData.error || 'unknown'));
+  }
+
+  return {
+    type: 'infographic',
+    servePath: uploadData.servePath,
+    serverUrl: 'http://localhost:3456' + uploadData.servePath,
+    localPath: uploadData.localPath || '',
+    filename: uploadData.fileName || filename,
+    width,
+    height,
+  };
+}
+
+/**
+ * Render infographic/table layout to PNG via Canvas
+ */
 export function renderInfographic(
   layout: LayoutData,
   width: number = 1920,
@@ -191,11 +300,9 @@ export function renderInfographic(
   const accentColor = style.accentColor || '#3b82f6';
   const fontSize = style.fontSize || 24;
 
-  // Background
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, width, height);
 
-  // Title
   ctx.fillStyle = accentColor;
   ctx.font = 'bold ' + (fontSize * 1.8) + 'px "Malgun Gothic", sans-serif';
   ctx.textAlign = 'center';
@@ -211,7 +318,6 @@ export function renderInfographic(
     const cellW = tableW / cols;
     const cellH = tableH / (rows + 1);
 
-    // Header row
     ctx.fillStyle = accentColor + '44';
     ctx.fillRect(startX, startY, tableW, cellH);
     ctx.fillStyle = accentColor;
@@ -221,11 +327,9 @@ export function renderInfographic(
       ctx.fillText(layout.columns[c], startX + cellW * c + cellW / 2, startY + cellH / 2 + fontSize / 3);
     }
 
-    // Data rows
     ctx.font = fontSize + 'px "Malgun Gothic", sans-serif';
     for (let r = 0; r < rows; r++) {
       const y = startY + cellH * (r + 1);
-      // Alternating row bg
       if (r % 2 === 0) {
         ctx.fillStyle = '#ffffff08';
         ctx.fillRect(startX, y, tableW, cellH);
@@ -238,7 +342,6 @@ export function renderInfographic(
       }
     }
 
-    // Grid lines
     ctx.strokeStyle = '#ffffff22';
     ctx.lineWidth = 1;
     for (let c = 0; c <= cols; c++) {
@@ -263,27 +366,19 @@ export function renderInfographic(
     for (let i = 0; i < items.length; i++) {
       const x = startX + cardW * i + 10;
       const w = cardW - 20;
-
-      // Card bg
       ctx.fillStyle = '#ffffff0a';
       ctx.beginPath();
       ctx.roundRect(x, startY, w, cardH, 12);
       ctx.fill();
-
-      // Card border
       ctx.strokeStyle = accentColor + '66';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.roundRect(x, startY, w, cardH, 12);
       ctx.stroke();
-
-      // Label
       ctx.fillStyle = accentColor;
       ctx.font = 'bold ' + (fontSize * 1.2) + 'px "Malgun Gothic", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(items[i].label, x + w / 2, startY + 50);
-
-      // Value
       ctx.fillStyle = textColor;
       ctx.font = fontSize + 'px "Malgun Gothic", sans-serif';
       const words = items[i].value.split(' ');
@@ -305,9 +400,7 @@ export function renderInfographic(
     const startX = width * 0.1;
     let y = 140;
     ctx.textAlign = 'left';
-
     for (let i = 0; i < layout.items.length; i++) {
-      // Bullet
       ctx.fillStyle = accentColor;
       ctx.beginPath();
       ctx.arc(startX + 12, y + fontSize / 2, 8, 0, Math.PI * 2);
@@ -316,18 +409,13 @@ export function renderInfographic(
       ctx.font = 'bold 14px "Malgun Gothic"';
       ctx.textAlign = 'center';
       ctx.fillText(String(i + 1), startX + 12, y + fontSize / 2 + 5);
-
-      // Label
       ctx.fillStyle = textColor;
       ctx.font = 'bold ' + fontSize + 'px "Malgun Gothic", sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText(layout.items[i].label, startX + 40, y + fontSize);
-
-      // Value
       ctx.fillStyle = textColor + 'bb';
       ctx.font = (fontSize * 0.85) + 'px "Malgun Gothic", sans-serif';
       ctx.fillText(layout.items[i].value, startX + 40, y + fontSize * 2.2);
-
       y += fontSize * 3.5;
     }
   }

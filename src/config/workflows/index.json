@@ -1,42 +1,11 @@
-[
-  {
-    "id": "title-card",
-    "name": "Title Card Image",
-    "description": "Generate stylized title card / thumbnail image",
-    "vramRequired": 6,
-    "estimatedTime": "8-15s",
-    "engine": "comfyui"
-  },
-  {
-    "id": "background-scene",
-    "name": "Background Scene",
-    "description": "Generate artistic background image for video overlay",
-    "vramRequired": 6,
-    "estimatedTime": "8-15s",
-    "engine": "comfyui"
-  },
-  {
-    "id": "anime-illustration",
-    "name": "Anime Illustration",
-    "description": "Generate anime-style illustration or character art",
-    "vramRequired": 6,
-    "estimatedTime": "10-20s",
-    "engine": "comfyui"
-  },
-  {
-    "id": "upscale-image",
-    "name": "Upscale Image",
-    "description": "Enhance resolution of existing image using AI upscaler",
-    "vramRequired": 4,
-    "estimatedTime": "5-10s",
-    "engine": "comfyui"
-  },
-  {
-    "id": "infographic-layout",
-    "name": "Infographic / Table Layout",
-    "description": "Generate table, comparison, or infographic layout using Canvas renderer",
-    "vramRequired": 0,
-    "estimatedTime": "1-2s",
-    "engine": "canvas"
-  }
-]
+{
+  "workflows": [
+    { "id": "title-card", "file": "title-card.json", "type": "image" },
+    { "id": "background-scene", "file": "background-scene.json", "type": "image" },
+    { "id": "anime-illustration", "file": "anime-illustration.json", "type": "image" },
+    { "id": "upscale-image", "file": "upscale-image.json", "type": "image" },
+    { "id": "infographic-layout", "file": "infographic-layout.json", "type": "canvas" },
+    { "id": "video-t2v", "file": "video-t2v.json", "type": "video" },
+    { "id": "video-i2v", "file": "video-i2v.json", "type": "video" }
+  ]
+}
