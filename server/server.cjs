@@ -165,13 +165,27 @@ app.post('/api/export', async (req, res) => {
     const visualClips = inputFiles
       .filter(f => {
         if (!((f.type === 'video' || f.type === 'image') && f.localPath && fs.existsSync(f.localPath))) return false;
-        // Skip animated WEBP files (FFmpeg cannot decode ComfyUI SaveAnimatedWEBP output)
+        // Convert animated WEBP to MP4 for FFmpeg compatibility
         if (f.localPath && f.localPath.toLowerCase().endsWith('.webp')) {
           try {
             const buf = fs.readFileSync(f.localPath).slice(0, 64);
             if (buf.toString('ascii').includes('ANIM')) {
-              console.log('[EXPORT] Skipping animated WEBP:', f.localPath);
-              return false;
+              const mp4Path = f.localPath.replace(/\.webp$/i, '_converted.mp4');
+              if (!fs.existsSync(mp4Path)) {
+                console.log('[EXPORT] Converting animated WEBP to MP4:', f.localPath);
+                try {
+                  require('child_process').execSync(
+                    '"' + FFMPEG + '" -y -i "' + f.localPath + '" -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p "' + mp4Path + '"',
+                    { timeout: 30000 }
+                  );
+                  console.log('[EXPORT] Converted:', mp4Path);
+                } catch (convErr) {
+                  console.log('[EXPORT] WEBP conversion failed:', convErr.message);
+                  return false;
+                }
+              }
+              f.localPath = mp4Path;
+              f.type = 'video';
             }
           } catch(e) {}
         }
