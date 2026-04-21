@@ -1,4 +1,5 @@
 import type { FlowScript, FlowScriptAction, FlowScriptClip, FlowScriptMedia, FlowScriptTrack } from "./flowscript.schema";
+import { DEFAULT_PROJECT } from '../types/project';
 import { useEditorStore } from "../stores/editorStore";
 import { createDefaultClip } from "../types/clip";
 import { uid } from "../utils/uid";
@@ -28,11 +29,11 @@ function normalizeScript(script: any): any {
   if (!script.project) script.project = {};
   if (!script.project.width && script.project.resolution) {
     const parts = script.project.resolution.split("x");
-    script.project.width = parseInt(parts[0]) || 1080;
-    script.project.height = parseInt(parts[1]) || 1920;
+    script.project.width = parseInt(parts[0]) || DEFAULT_PROJECT.width;
+    script.project.height = parseInt(parts[1]) || DEFAULT_PROJECT.height;
   }
-  if (!script.project.width) script.project.width = 1080;
-  if (!script.project.height) script.project.height = 1920;
+  if (!script.project.width) script.project.width = DEFAULT_PROJECT.width;
+  if (!script.project.height) script.project.height = DEFAULT_PROJECT.height;
   if (!script.project.fps) script.project.fps = 30;
   const pw = script.project.width;
   const ph = script.project.height;
@@ -177,10 +178,10 @@ export class ScriptEngine {
       store.setAspectPreset(project.aspectPreset as any);
     } else {
       this.log.push("[DEBUG] setProjectSize: " + project.width + "x" + project.height);
-      store.setProjectSize(project.width || 1920, project.height || 1080);
+      store.setProjectSize(project.width || DEFAULT_PROJECT.width, project.height || DEFAULT_PROJECT.height);
     }
     if (project.fps) store.setFps(project.fps);
-    this.log.push("[Project] " + (project.width || 1080) + "x" + (project.height || 1920) + " @ " + (project.fps || 30) + "fps");
+    this.log.push("[Project] " + (project.width || DEFAULT_PROJECT.width) + "x" + (project.height || DEFAULT_PROJECT.height) + " @ " + (project.fps || 30) + "fps");
   }
 
   private async importMedia(mediaList: FlowScriptMedia[]) {

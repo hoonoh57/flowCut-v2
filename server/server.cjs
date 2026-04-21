@@ -299,7 +299,10 @@ app.post('/api/export', async (req, res) => {
       const scaledLabel = 'sc' + overlayCount;
       let sf = '[' + idx + ':v]';
       if (rect.fullscreen) {
-        sf += 'scale=' + ow + ':' + oh + ':flags=lanczos:force_original_aspect_ratio=decrease,pad=' + ow + ':' + oh + ':(ow-iw)/2:(oh-ih)/2:black';
+        sf += 'scale=' + Math.round(ow*1.1) + ':' + Math.round(oh*1.1) + ':flags=lanczos:force_original_aspect_ratio=decrease,pad=' + Math.round(ow*1.1) + ':' + Math.round(oh*1.1) + ':(ow-iw)/2:(oh-ih)/2:black';
+        // Ken Burns: subtle zoom out
+        const kbDur = (clip.durationFrames / fps).toFixed(3);
+        sf += ',zoompan=z=\'min(zoom+0.0005,1.1)\':x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':d=' + Math.round(clip.durationFrames) + ':s=' + ow + 'x' + oh + ':fps=' + fps;
       } else {
         sf += 'scale=' + rect.w + ':' + rect.h + ':flags=lanczos';
       }

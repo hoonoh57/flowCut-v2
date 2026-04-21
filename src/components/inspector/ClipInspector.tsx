@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
+import { DEFAULT_PROJECT } from '../../types/project';
 import { useEditorStore } from '../../stores/editorStore';
 
 /* ───── tiny color input ───── */
@@ -109,8 +110,8 @@ export default function ClipInspector() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
             <NumField label="X" value={clip.x || 0} onChange={v => set('x', v)} unit="px" />
             <NumField label="Y" value={clip.y || 0} onChange={v => set('y', v)} unit="px" />
-            <NumField label="Width" value={clip.width || 1920} onChange={v => set('width', v)} min={1} unit="px" />
-            <NumField label="Height" value={clip.height || 1080} onChange={v => set('height', v)} min={1} unit="px" />
+            <NumField label="Width" value={clip.width || DEFAULT_PROJECT.width} onChange={v => set('width', v)} min={1} unit="px" />
+            <NumField label="Height" value={clip.height || DEFAULT_PROJECT.height} onChange={v => set('height', v)} min={1} unit="px" />
           </div>
           <NumField label="Rotation" value={clip.rotation || 0} onChange={v => set('rotation', v)} min={-360} max={360} unit="°" />
           <NumField label="Opacity" value={clip.opacity ?? 100} onChange={v => set('opacity', v)} min={0} max={100} unit="%" />

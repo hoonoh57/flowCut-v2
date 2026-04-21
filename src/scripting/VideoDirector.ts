@@ -1,3 +1,5 @@
+import { DEFAULT_PROJECT } from '../types/project';
+
 export interface Beat {
   id: string;
   label: string;
@@ -20,52 +22,43 @@ export interface DirectorPlan {
 
 function scenicTemplate(scenes: {prompt:string; text:string}[], durationSec = 30, fps = 30): DirectorPlan {
   const n = scenes.length;
-  const hookEnd = 2;
-  const ctxEnd = 7;
-  const loopStart = durationSec - 5;
+  // Each i2v clip is ~2 seconds. Distribute scenes evenly across duration.
+  const clipDur = durationSec / n; // e.g. 30s / 15 scenes = 2s each
   const beats: Beat[] = [];
 
-  beats.push({
-    id: "hook", label: "Hook", startSec: 0, endSec: hookEnd,
-    scenePrompt: scenes[0]?.prompt || "dramatic wide shot",
-    text: scenes[0]?.text || "",
-    textStyle: { fontSize: 80, fontWeight: "bold", y: 0.7, textShadow: "2px 2px 8px rgba(0,0,0,0.8)" },
-    transition: "fadeIn", energy: "high"
-  });
+  scenes.forEach((s, i) => {
+    const startSec = i * clipDur;
+    const endSec = (i + 1) * clipDur;
+    let label = "Payoff";
+    let energy: "high" | "medium" | "low" = "medium";
+    let transition: "cut" | "fadeIn" | "fadeOut" | "crossfade" = "crossfade";
+    
+    if (i === 0) { label = "Hook"; energy = "high"; transition = "fadeIn"; }
+    else if (i === 1) { label = "Context"; }
+    else if (i === n - 1) { label = "Loop"; energy = "low"; transition = "fadeOut"; }
+    else if (i % 3 === 0) { energy = "high"; }
 
-  const ctxScenes = scenes.slice(1, 3);
-  const ctxDur = (ctxEnd - hookEnd) / Math.max(ctxScenes.length, 1);
-  ctxScenes.forEach((s, i) => {
     beats.push({
-      id: "ctx_" + i, label: "Context", startSec: hookEnd + i * ctxDur, endSec: hookEnd + (i+1) * ctxDur,
-      scenePrompt: s.prompt, text: s.text,
-      textStyle: { fontSize: 52, y: 0.75 },
-      transition: "crossfade", energy: "medium"
+      id: i === 0 ? "hook" : i === n - 1 ? "loop" : i <= 2 ? "ctx_" + (i-1) : "pay_" + (i-3),
+      label,
+      startSec,
+      endSec,
+      scenePrompt: s.prompt || "beautiful scene",
+      text: s.text || "",
+      textStyle: {
+        fontSize: i === 0 ? 80 : i === n - 1 ? 56 : 48,
+        fontWeight: i === 0 ? "bold" : "normal",
+        y: i === 0 ? 0.7 : 0.78,
+        textShadow: "2px 2px 8px rgba(0,0,0,0.8)"
+      },
+      transition,
+      energy
     });
-  });
-
-  const payoffScenes = scenes.slice(3, n - 1);
-  const payoffDur = (loopStart - ctxEnd) / Math.max(payoffScenes.length, 1);
-  payoffScenes.forEach((s, i) => {
-    beats.push({
-      id: "pay_" + i, label: "Payoff", startSec: ctxEnd + i * payoffDur, endSec: ctxEnd + (i+1) * payoffDur,
-      scenePrompt: s.prompt, text: s.text,
-      textStyle: { fontSize: 48, y: 0.78 },
-      transition: i % 2 === 0 ? "cut" : "crossfade", energy: i % 3 === 0 ? "high" : "medium"
-    });
-  });
-
-  const loopScene = scenes[n - 1] || scenes[0];
-  beats.push({
-    id: "loop", label: "Loop", startSec: loopStart, endSec: durationSec,
-    scenePrompt: loopScene.prompt, text: loopScene.text || scenes[0]?.text || "",
-    textStyle: { fontSize: 56, y: 0.7 },
-    transition: "fadeOut", energy: "low"
   });
 
   return {
     templateId: "shorts-scenic",
-    project: { width: 1080, height: 1920, fps, durationSec },
+    project: { width: opts.width || DEFAULT_PROJECT.width, height: opts.height || DEFAULT_PROJECT.height, fps, durationSec },
     style: { mood: "cinematic", colorTone: "warm" },
     beats,
     musicPrompt: "uplifting ambient background music"
@@ -141,7 +134,7 @@ export function buildDirectorPlan(
 ): DirectorPlan {
   const dur = opts?.durationSec || 30;
   const fps = opts?.fps || 30;
-  while (scenes.length < 8) {
+  while (scenes.length < 15) {
     scenes.push(scenes[scenes.length - 1] || { prompt: "beautiful scenery", text: "" });
   }
   return scenicTemplate(scenes, dur, fps);

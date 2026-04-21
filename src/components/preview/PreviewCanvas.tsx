@@ -133,6 +133,21 @@ const ClipMedia: React.FC<{ clip: Clip; isPlaying: boolean; currentFrame: number
   }
   if (clip.type === 'image') {
     const imgSrc = getClipPreviewUrl(clip, mediaItems);
+    // If image clip points to a video file, render as <video>
+    const isVideoFile = imgSrc && (imgSrc.endsWith('.mp4') || imgSrc.endsWith('.webm') || imgSrc.endsWith('.mov'));
+    if (isVideoFile) {
+      return (
+        <video ref={videoRef} src={imgSrc} muted autoPlay loop playsInline
+          onError={(e) => {
+            const m = mediaItems?.find(mi => mi.id === clip.mediaId);
+            if (m?.localPath) {
+              const fn = m.localPath.split(/[\\\/]/).pop() || '';
+              (e.target as HTMLVideoElement).src = 'http://localhost:3456/media/' + fn;
+            }
+          }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      );
+    }
     return imgSrc ? (
       <img src={imgSrc} alt={clip.name}
         onError={(e) => {
@@ -248,7 +263,7 @@ export const PreviewCanvas: React.FC = () => {
   const isPlaying = useEditorStore((s) => s.isPlaying);
   const pw = useEditorStore((s) => s.projectWidth);
   const ph = useEditorStore((s) => s.projectHeight);
-  const safePw = pw || 1920, safePh = ph || 1080;
+  const safePw = pw || DEFAULT_PROJECT.width, safePh = ph || DEFAULT_PROJECT.height;
   const aspectPreset = useEditorStore((s) => s.aspectPreset);
   const setAspectPreset = useEditorStore((s) => s.setAspectPreset);
   const fitMode = useEditorStore((s) => s.fitMode);

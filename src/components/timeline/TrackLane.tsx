@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
+import { DEFAULT_PROJECT } from '../../types/project';
 import { useEditorStore } from '../../stores/editorStore';
 import { TimelineClip } from './TimelineClip';
 import { theme } from '../../styles/theme';
@@ -62,8 +63,8 @@ export const TrackLane: React.FC<TrackLaneProps> = ({ track, trackIndex, totalWi
         src: media.url,
         mediaId: media.id,
         localPath: media.localPath || '',
-        width: media.width || 1920,
-        height: media.height || 1080,
+        width: media.width || DEFAULT_PROJECT.width,
+        height: media.height || DEFAULT_PROJECT.height,
       });
       const rm = useEditorStore.getState().rippleMode || false;
       dispatch(new AddClipCommand(clip, rm));

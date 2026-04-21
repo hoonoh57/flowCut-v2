@@ -1,5 +1,6 @@
 ﻿import { uid } from './uid';
 import { createDefaultClip } from '../types/clip';
+import { DEFAULT_PROJECT } from '../types/project';
 import { validateClipMedia } from './mediaResolver';
 import type { Clip } from '../types/clip';
 import type { MediaItem } from '../stores/slices/mediaSlice';
@@ -26,8 +27,8 @@ export function createMediaClipFromItem(
     mediaId: mediaItem.id,
     src: mediaItem.objectUrl || mediaItem.url,
     localPath: mediaItem.localPath || '',
-    width: mediaItem.width || 1920,
-    height: mediaItem.height || 1080,
+    width: mediaItem.width || DEFAULT_PROJECT.width,
+    height: mediaItem.height || DEFAULT_PROJECT.height,
     ...overrides,
   });
 

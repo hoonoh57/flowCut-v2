@@ -1,3 +1,5 @@
+import { DEFAULT_PROJECT } from './project';
+
 export interface VolumePoint {
   /** 0~1 ratio within clip duration */
   position: number;
@@ -73,8 +75,8 @@ export function createDefaultClip(
     sourceDuration: 5,
     x: 0,
     y: 0,
-    width: 1920,
-    height: 1080,
+    width: DEFAULT_PROJECT.width,
+  height: DEFAULT_PROJECT.height,
     rotation: 0,
     opacity: 100,
     brightness: 0,

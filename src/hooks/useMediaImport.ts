@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { DEFAULT_PROJECT } from '../types/project';
 import { useEditorStore } from '../stores/editorStore';
 import { uid } from '../utils/uid';
 import type { MediaItem } from '../stores/slices/mediaSlice';
@@ -38,14 +39,14 @@ function getMediaDimensions(file: File): Promise<{ width: number; height: number
       const url = URL.createObjectURL(file);
       const video = document.createElement('video');
       video.preload = 'metadata';
-      video.onloadedmetadata = () => { resolve({ width: video.videoWidth || 1920, height: video.videoHeight || 1080 }); URL.revokeObjectURL(url); };
-      video.onerror = () => { resolve({ width: 1920, height: 1080 }); URL.revokeObjectURL(url); };
+      video.onloadedmetadata = () => { resolve({ width: video.videoWidth || DEFAULT_PROJECT.width, height: video.videoHeight || DEFAULT_PROJECT.height }); URL.revokeObjectURL(url); };
+      video.onerror = () => { resolve({ width: DEFAULT_PROJECT.width, height: DEFAULT_PROJECT.height }); URL.revokeObjectURL(url); };
       video.src = url;
     } else if (file.type.startsWith('image/')) {
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => { resolve({ width: img.naturalWidth, height: img.naturalHeight }); URL.revokeObjectURL(url); };
-      img.onerror = () => { resolve({ width: 1920, height: 1080 }); URL.revokeObjectURL(url); };
+      img.onerror = () => { resolve({ width: DEFAULT_PROJECT.width, height: DEFAULT_PROJECT.height }); URL.revokeObjectURL(url); };
       img.src = url;
     } else {
       resolve({ width: 0, height: 0 });

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DEFAULT_PROJECT } from '../../types/project';
 import { useEditorStore } from '../../stores/editorStore';
 import { createTextClipFromPreset, createMediaClipFromItem } from '../../utils/clipFactory';
 import { AddClipCommand } from '../../stores/commands/AddClipCommand';
@@ -95,8 +96,8 @@ export const TextPanel: React.FC = () => {
       {
         x: 0,
         y: 0,
-        width: asset.width || 1920,
-        height: asset.height || 1080,
+        width: asset.width || DEFAULT_PROJECT.width,
+        height: asset.height || DEFAULT_PROJECT.height,
       }
     );
     dispatch(new AddClipCommand(clip, rippleMode));
@@ -168,8 +169,8 @@ export const TextPanel: React.FC = () => {
       // ━━━ COMPOSITE LAYOUT (Infographic / Table) ━━━
       else if (plan.action === 'compositeLayout' && plan.layoutData) {
         setExecutionLog(prev => [...prev, '🎨 인포그래픽 렌더링 중...']);
-        const w = plan.width || 1920;
-        const h = plan.height || 1080;
+        const w = plan.width || DEFAULT_PROJECT.width;
+        const h = plan.height || DEFAULT_PROJECT.height;
         const canvas = renderInfographic(plan.layoutData, w, h);
 
         setExecutionLog(prev => [...prev, '📤 서버에 업로드 중...']);

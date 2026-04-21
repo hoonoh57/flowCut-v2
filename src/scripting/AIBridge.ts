@@ -1,6 +1,6 @@
 import type { FlowScript } from "./flowscript.schema";
 
-const SYSTEM_PROMPT = `You are a video scene planner. Given a topic, generate exactly 8 scenes for a 30-second vertical YouTube Shorts video.
+const SYSTEM_PROMPT = `You are a video scene planner. Given a topic, generate exactly 15 scenes for a 30-second vertical YouTube Shorts video.
 
 RESPOND WITH ONLY A JSON OBJECT, no markdown, no explanation, no code fences.
 
