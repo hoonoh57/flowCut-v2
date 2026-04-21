@@ -121,3 +121,21 @@
 | Phase 3.3c | 2026-04 | Fix MP4 export (reclassify image→video) |
 | Phase 3.4 | 2026-04 | Coding standards, zero hardcoding, Ken Burns, 15-scene template |
 | Phase 3.4.1 | 2026-04 | Project load video auto-detection fix |
+
+
+---
+
+## Script Infrastructure Status
+
+전체 기능의 스크립트화 현황. AI가 활용하려면 100% 완료 필요.
+
+| 카테고리 | 구현 | 미구현 | 완료율 |
+|----------|------|--------|--------|
+| 편집 액션 | 8 | 7 (addClip, setClipProperty, addTrack, removeTrack, setProject, trim, duplicate) | 53% |
+| AI 생성 | 2 (image, video) | 3 (TTS, BGM, upscale) | 40% |
+| 출력/유틸 | 4 (export, wait, log, upload) | 3 (transition, save, undo) | 57% |
+| **전체** | **14** | **13** | **52%** |
+
+목표: **100% 스크립트 커버리지** 달성 후 카테고리 에이전트 구축
+
+상세 명세: [docs/SCRIPT_API.md](SCRIPT_API.md)
