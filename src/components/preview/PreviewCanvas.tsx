@@ -108,8 +108,16 @@ const ClipMedia: React.FC<{ clip: Clip; isPlaying: boolean; currentFrame: number
     if (clip.fadeOut > 0 && localFrame > clip.durationFrames - clip.fadeOut) vol *= (clip.durationFrames - localFrame) / clip.fadeOut;
     v.volume = Math.min(1, Math.max(0, vol));
     v.muted = clip.muted;
-    if (isPlaying) { if (v.paused) v.play().catch(() => {}); }
-    else { v.pause(); v.currentTime = targetTime; }
+    if (isPlaying) {
+      if (v.paused) v.play().catch(() => {});
+      // Drift correction: if video drifts more than 0.15s, re-sync
+      if (Math.abs(v.currentTime - targetTime) > 0.15) v.currentTime = targetTime;
+    }
+    else {
+      v.pause();
+      // Seek to exact frame position when paused
+      if (Math.abs(v.currentTime - targetTime) > 0.01) v.currentTime = targetTime;
+    }
   }, [isPlaying, targetTime, clip.speed]);
 
   if (clip.type === 'video') {

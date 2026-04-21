@@ -87,8 +87,7 @@ export function planToFlowScript(plan: DirectorPlan): any {
       aiWorkflow: "image-to-video"
     });
 
-    clips.push({
-      trackId: "v1", mediaId, type: "video",
+    clips.push({ id: "c_v_" + beat.id, trackId: "v1", mediaId, type: "video",
       startFrame, durationFrames: durFrame,
       width: project.width, height: project.height, x: 0, y: 0,
       fadeIn: (beat.transition === "fadeIn" || beat.transition === "crossfade") ? 0.3 : 0,
@@ -116,6 +115,13 @@ export function planToFlowScript(plan: DirectorPlan): any {
     project: { width: project.width, height: project.height, fps },
     media, tracks, clips,
     actions: [
+      ...beats.slice(0, -1).map((beat, i) => ({
+        action: "transition" as const,
+        clipIdA: "c_v_" + beat.id,
+        clipIdB: "c_v_" + beats[i + 1].id,
+        type: beat.transition === "crossfade" ? "dissolve" : beat.transition === "fadeIn" ? "fade" : "dissolve",
+        duration: Math.round(fps * 0.3),
+      })),
       { action: "autoSubtitle", language: "ko" },
       { action: "export", format: "mp4", quality: "high" }
     ]

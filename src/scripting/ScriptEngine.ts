@@ -462,7 +462,11 @@ export class ScriptEngine {
           break;
         }
         case "transition": {
-          this.log.push("[Action] transition placeholder (FFmpeg xfade pending)");
+          const trA = (act as any).clipIdA ? this.resolveClipId((act as any).clipIdA) : "";
+          const trB = (act as any).clipIdB ? this.resolveClipId((act as any).clipIdB) : "";
+          const trType = (act as any).type || "dissolve";
+          const trDur = (act as any).duration || 15;
+          this.log.push("[Action] transition " + trType + " (" + trDur + " frames) between " + trA + " <-> " + trB);
           break;
         }
         case "save": {

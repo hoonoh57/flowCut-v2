@@ -427,7 +427,7 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
       {/* Label */}
       <div style={{ position: 'absolute', left: 8, top: isVideo ? 2 : (height / 2 - 7), right: 8, display: 'flex', alignItems: 'center', zIndex: 25, pointerEvents: 'none' }}>
         <span style={{ fontSize: 10, color: '#fff', flex: 1, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-          {clip.name}
+          {clip.type === "video" ? "\uD83C\uDFAC " : clip.type === "image" ? "\uD83D\uDDBC " : ""}{clip.name}
         </span>
         <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)', marginLeft: 4, flexShrink: 0, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
           {durationSec}s

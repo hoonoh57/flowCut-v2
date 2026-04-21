@@ -68,6 +68,27 @@ function envelopeToVolumeFilter(envelope, durationSec) {
   return "volume='" + parts.join('+') + "':eval=frame";
 }
 
+
+// === Crossfade Transition Support (Phase 3.6) ===
+function buildXfadeFilter(clipA, clipB, transitionType, transitionDur, fps) {
+  // xfade types: fade, dissolve, wipeleft, wiperight, wipeup, wipedown, slideleft, slideright
+  const typeMap = {
+    'dissolve': 'dissolve',
+    'fade': 'fade',
+    'wipe': 'wipeleft',
+    'wipe-left': 'wipeleft',
+    'wipe-right': 'wiperight',
+    'slide': 'slideleft',
+    'slide-left': 'slideleft',
+    'slide-right': 'slideright',
+    'slide-up': 'wipeup',
+    'slide-down': 'wipedown',
+  };
+  const xfType = typeMap[transitionType] || 'dissolve';
+  const durSec = (transitionDur || 15) / fps;
+  const offsetSec = ((clipA.startFrame + clipA.durationFrames) / fps) - durSec;
+  return { type: xfType, duration: durSec, offset: Math.max(0, offsetSec) };
+}
 function getClipRect(clip, pw, ph, ow, oh) {
   const sx = ow / pw, sy = oh / ph;
   const cx = clip.x || 0, cy = clip.y || 0;
