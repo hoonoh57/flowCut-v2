@@ -175,13 +175,22 @@ app.post('/api/export', async (req, res) => {
                 console.log('[EXPORT] Converting animated WEBP to MP4:', f.localPath);
                 try {
                   require('child_process').execSync(
-                    '"' + FFMPEG + '" -y -i "' + f.localPath + '" -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p "' + mp4Path + '"',
-                    { timeout: 30000 }
+                    '"' + FFMPEG + '" -y -c:v libwebp_anim -i "' + f.localPath + '" -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p "' + mp4Path + '"',
+                    { timeout: 60000 }
                   );
                   console.log('[EXPORT] Converted:', mp4Path);
                 } catch (convErr) {
-                  console.log('[EXPORT] WEBP conversion failed:', convErr.message);
-                  return false;
+                  console.log('[EXPORT] WEBP anim conversion failed, trying image2 demuxer...');
+                  try {
+                    require('child_process').execSync(
+                      '"' + FFMPEG + '" -y -f image2 -framerate 16 -i "' + f.localPath + '" -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p "' + mp4Path + '"',
+                      { timeout: 60000 }
+                    );
+                    console.log('[EXPORT] Converted via image2:', mp4Path);
+                  } catch (convErr2) {
+                    console.log('[EXPORT] All WEBP conversion failed:', convErr2.message, '- skipping');
+                    return false;
+                  }
                 }
               }
               f.localPath = mp4Path;
