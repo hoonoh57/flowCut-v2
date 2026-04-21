@@ -817,6 +817,145 @@ app.post('/api/comfyui/generate', async (req, res) => {
 });
 
 
+
+
+// =========================================================================
+// Image-to-Video 2-Stage Pipeline
+// =========================================================================
+app.post('/api/comfyui/generate-video', async (req, res) => {
+  const { imageLocalPath, positive, negative, width, height, length, steps } = req.body;
+  console.log('');
+  console.log('========================================');
+  console.log('[I2V] START - Image to Video');
+  console.log('[I2V] Source image:', imageLocalPath);
+  console.log('[I2V] Prompt:', (positive || '').substring(0, 80));
+  console.log('[I2V] Dimensions:', width || 480, 'x', height || 832);
+  console.log('========================================');
+
+  // Verify source image exists
+  if (!imageLocalPath || !fs.existsSync(imageLocalPath)) {
+    console.log('[I2V] ERROR: Source image not found:', imageLocalPath);
+    return res.json({ error: 'Source image not found: ' + imageLocalPath });
+  }
+
+  // Copy image to ComfyUI input folder so LoadImage can find it
+  const comfyInputDir = 'E:/WuxiaStudio/engine/ComfyUI/ComfyUI/input';
+  if (!fs.existsSync(comfyInputDir)) fs.mkdirSync(comfyInputDir, { recursive: true });
+  const imgFileName = 'flowcut_i2v_' + Date.now() + path.extname(imageLocalPath);
+  const comfyImagePath = path.join(comfyInputDir, imgFileName);
+  fs.copyFileSync(imageLocalPath, comfyImagePath);
+  console.log('[I2V] Copied to ComfyUI input:', comfyImagePath);
+
+  // Load i2v workflow
+  const wfPath = path.join(__dirname, '..', 'src', 'config', 'workflows', 'video-i2v.json');
+  if (!fs.existsSync(wfPath)) {
+    return res.json({ error: 'video-i2v.json workflow not found' });
+  }
+  const template = JSON.parse(fs.readFileSync(wfPath, 'utf8'));
+  const workflow = JSON.parse(JSON.stringify(template.workflow));
+
+  // Fill parameters
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (node.inputs) {
+      for (const [key, val] of Object.entries(node.inputs)) {
+        if (val === '{{positive}}') node.inputs[key] = positive || 'gentle camera motion, cinematic';
+        if (val === '{{negative}}') node.inputs[key] = negative || 'blurry, overexposed, static, worst quality, text, watermark';
+        if (val === '{{start_image}}') node.inputs[key] = imgFileName;
+      }
+      if (node.class_type === 'Wan22ImageToVideoLatent') {
+        if (width) node.inputs.width = width;
+        if (height) node.inputs.height = height;
+        if (length) node.inputs.length = length;
+      }
+      if (node.class_type === 'KSampler') {
+        node.inputs.seed = Math.floor(Math.random() * 1e15);
+        if (steps) node.inputs.steps = steps;
+      }
+    }
+  }
+
+  // Submit to ComfyUI
+  const payload = JSON.stringify({ prompt: workflow });
+  console.log('[I2V] Submitting to ComfyUI...');
+
+  let queueData;
+  try {
+    const queueResp = await fetch('http://127.0.0.1:8188/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    });
+    queueData = await queueResp.json();
+  } catch (err) {
+    console.log('[I2V] ComfyUI connection error:', err.message);
+    return res.json({ error: 'ComfyUI connection failed: ' + err.message });
+  }
+
+  if (queueData.error) {
+    console.log('[I2V] ComfyUI rejected:', JSON.stringify(queueData.error).substring(0, 300));
+    return res.json({ error: 'ComfyUI rejected: ' + JSON.stringify(queueData.error).substring(0, 300) });
+  }
+
+  const promptId = queueData.prompt_id;
+  if (!promptId) return res.json({ error: 'No prompt_id returned' });
+  console.log('[I2V] prompt_id:', promptId);
+  console.log('[I2V] Polling for video completion (up to 300s)...');
+
+  // Poll for completion (video takes longer than image)
+  for (let i = 0; i < 150; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const histResp = await fetch('http://127.0.0.1:8188/history/' + promptId);
+      const histData = await histResp.json();
+      const entry = histData[promptId];
+      if (!entry) {
+        if (i % 10 === 0) console.log('[I2V] Polling... (' + (i * 2) + 's)');
+        continue;
+      }
+
+      for (const [nodeId, output] of Object.entries(entry.outputs || {})) {
+        const items = output.images || output.gifs || [];
+        if (items.length > 0) {
+          const item = items[0];
+          console.log('[I2V] Output ready:', item.filename, 'from node', nodeId);
+
+          const imgUrl = 'http://127.0.0.1:8188/view?filename=' + encodeURIComponent(item.filename)
+            + '&subfolder=' + encodeURIComponent(item.subfolder || '')
+            + '&type=' + (item.type || 'output');
+
+          const resp = await fetch(imgUrl);
+          const buffer = Buffer.from(await resp.arrayBuffer());
+
+          const ext = path.extname(item.filename) || '.webp';
+          const localName = 'ai_video_' + Date.now() + '_' + item.filename;
+          const localPath = path.join(MEDIA_DIR, localName);
+          fs.writeFileSync(localPath, buffer);
+          console.log('[I2V] Saved:', localPath, '(' + buffer.length + ' bytes)');
+
+          // Clean up temp image from ComfyUI input
+          try { fs.unlinkSync(comfyImagePath); } catch(e) {}
+
+          return res.json({
+            success: true,
+            promptId,
+            localPath,
+            servePath: '/media/' + localName,
+            serverUrl: 'http://localhost:' + PORT + '/media/' + localName,
+            outputType: 'video',
+            fps: 16,
+            frames: template.workflow['55']?.inputs?.length || 33
+          });
+        }
+      }
+    } catch (pollErr) {
+      console.log('[I2V] Poll error:', pollErr.message);
+    }
+  }
+
+  console.log('[I2V] TIMEOUT - no video after 300s');
+  return res.json({ error: 'Video generation timed out (300s)', promptId });
+});
+
 // =========================================================================
 // ComfyUI Proxy — FIXED: Native fetch
 // =========================================================================

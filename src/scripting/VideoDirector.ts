@@ -90,7 +90,7 @@ export function planToFlowScript(plan: DirectorPlan): any {
     media.push({
       id: mediaId, type: "image",
       src: "ai://" + (beat.scenePrompt || "scene"),
-      aiWorkflow: "background-scene"
+      aiWorkflow: "image-to-video"
     });
 
     clips.push({

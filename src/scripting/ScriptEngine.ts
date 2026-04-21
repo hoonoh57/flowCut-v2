@@ -200,6 +200,40 @@ export class ScriptEngine {
             useEditorStore.getState().addMediaItem({ id: media.id, name: media.name || "AI Generated", type: media.type || "image", url: data.serverUrl && data.serverUrl.startsWith("http") ? data.serverUrl : "http://localhost:3456/media/" + (data.localPath || data.serverUrl || "").split(/[\\/]/).pop(), localPath: data.localPath || data.serverUrl, duration: media.duration || 5, width: 1024, height: 1024, size: 0 });
             this.mediaIdMap.set(media.id, media.id);
             if ((media as any).mediaId && (media as any).mediaId !== media.id) this.mediaIdMap.set((media as any).mediaId, media.id);
+            
+            // Phase 3.3: Image-to-Video conversion
+            if (media.aiWorkflow === "image-to-video" || media.aiWorkflow === "video-i2v") {
+              this.log.push("[Media] Starting Image-to-Video conversion...");
+              try {
+                const i2vResp = await fetch("http://localhost:3456/api/comfyui/generate-video", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    imageLocalPath: data.localPath,
+                    positive: (media.aiPrompt || media.src.replace("ai://", "")) + ", gentle camera motion, cinematic, smooth animation",
+                    width: 480, height: 832, length: 33, steps: 25
+                  })
+                });
+                const i2vData = await i2vResp.json();
+                if (i2vData.success) {
+                  useEditorStore.getState().addMediaItem({
+                    id: media.id + "_video",
+                    name: (media.name || "AI Video") + " (video)",
+                    type: "video",
+                    url: i2vData.serverUrl,
+                    localPath: i2vData.localPath,
+                    duration: (i2vData.frames || 33) / (i2vData.fps || 16),
+                    width: 480, height: 832, size: 0
+                  });
+                  this.mediaIdMap.set(media.id, media.id + "_video");
+                  this.log.push("[Media] I2V complete: " + i2vData.localPath);
+                } else {
+                  this.log.push("[Media] I2V failed: " + (i2vData.error || "unknown") + " - using image fallback");
+                }
+              } catch (i2vErr: any) {
+                this.log.push("[Media] I2V error: " + i2vErr.message + " - using image fallback");
+              }
+            }
+
             this.log.push("[Media] AI generated: " + data.localPath + " | url: " + (data.serverUrl && data.serverUrl.startsWith("http") ? data.serverUrl : "http://localhost:3456/media/" + (data.localPath || "").split(/[\\/]/).pop()));
           } else { this.errors.push("[Media] AI failed: " + (data.error || "unknown")); }
         } catch (err: any) { this.errors.push("[Media] AI error: " + err.message); }
