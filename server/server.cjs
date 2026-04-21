@@ -5,6 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 
+// === PROJECT DEFAULTS (mirrors src/types/project.ts) ===
+const DEFAULT_WIDTH = 1920;
+const DEFAULT_HEIGHT = 1080;
+const DEFAULT_FPS = 30;
+
 // === FONT MAP (inline) ===
 const FONT_DIR_PATH = 'C:/Windows/Fonts';
 const FONT_MAP = {
@@ -67,7 +72,7 @@ function getClipRect(clip, pw, ph, ow, oh) {
   const sx = ow / pw, sy = oh / ph;
   const cx = clip.x || 0, cy = clip.y || 0;
   const cw = clip.clipWidth || pw, ch = clip.clipHeight || ph;
-  const isDefault = cx === 0 && cy === 0 && (cw === pw || cw === 1920) && (ch === ph || ch === 1080);
+  const isDefault = cx === 0 && cy === 0 && (cw === pw || cw === DEFAULT_WIDTH) && (ch === ph || ch === DEFAULT_HEIGHT);
   if (isDefault && (clip.type === 'video' || clip.type === 'image')) {
     return { x: 0, y: 0, w: ow, h: oh, fullscreen: true };
   }

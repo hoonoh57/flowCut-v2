@@ -20,7 +20,8 @@ export interface DirectorPlan {
   musicPrompt?: string;
 }
 
-function scenicTemplate(scenes: {prompt:string; text:string}[], durationSec = 30, fps = 30): DirectorPlan {
+function scenicTemplate(scenes: {prompt:string; text:string}[], opts: {durationSec: number; fps: number; width: number; height: number}): DirectorPlan {
+  const { durationSec, fps } = opts;
   const n = scenes.length;
   // Each i2v clip is ~2 seconds. Distribute scenes evenly across duration.
   const clipDur = durationSec / n; // e.g. 30s / 15 scenes = 2s each
@@ -87,7 +88,7 @@ export function planToFlowScript(plan: DirectorPlan): any {
     });
 
     clips.push({
-      trackId: "v1", mediaId, type: "image",
+      trackId: "v1", mediaId, type: "video",
       startFrame, durationFrames: durFrame,
       width: project.width, height: project.height, x: 0, y: 0,
       fadeIn: (beat.transition === "fadeIn" || beat.transition === "crossfade") ? 0.3 : 0,
@@ -130,12 +131,12 @@ export function selectTemplate(prompt: string): string {
 
 export function buildDirectorPlan(
   scenes: {prompt: string; text: string}[],
-  opts?: { durationSec?: number; fps?: number }
+  opts?: { durationSec?: number; fps?: number; width?: number; height?: number }
 ): DirectorPlan {
-  const dur = opts?.durationSec || 30;
-  const fps = opts?.fps || 30;
+  const dur = opts?.durationSec || 30; // 30초 = 영상 길이 (fps 아님, 허용)
+  const fps = opts?.fps || DEFAULT_PROJECT.fps;
   while (scenes.length < 15) {
     scenes.push(scenes[scenes.length - 1] || { prompt: "beautiful scenery", text: "" });
   }
-  return scenicTemplate(scenes, dur, fps);
+  return scenicTemplate(scenes, { durationSec: dur, fps, width: opts?.width || DEFAULT_PROJECT.width, height: opts?.height || DEFAULT_PROJECT.height });
 }

@@ -22,7 +22,7 @@ function normalizeScript(script: any): any {
   // Unwrap if nested in { flowScript: { ... } }
   if (script.flowScript && !script.version) script = script.flowScript;
 
-  const fps = script.project?.fps || 30;
+  const fps = script.project?.fps || DEFAULT_PROJECT.fps;
   const totalFrames = fps * 30;
 
   // Fix project resolution
@@ -34,7 +34,7 @@ function normalizeScript(script: any): any {
   }
   if (!script.project.width) script.project.width = DEFAULT_PROJECT.width;
   if (!script.project.height) script.project.height = DEFAULT_PROJECT.height;
-  if (!script.project.fps) script.project.fps = 30;
+  if (!script.project.fps) script.project.fps = DEFAULT_PROJECT.fps;
   const pw = script.project.width;
   const ph = script.project.height;
 
@@ -109,7 +109,10 @@ function normalizeScript(script: any): any {
   if (script.clips) {
     for (const c of script.clips) {
       if (c.type === "video" && c.mediaId && imgIds.has(c.mediaId)) c.type = "image";
+
       if (c.type === "audio" && c.mediaId && !validMediaIds.has(c.mediaId)) c._skip = true;
+      // Auto-detect video clips by mediaId or src extension
+      if (c.type === "image" && (c.mediaId?.endsWith("_video") || (c.src || "").endsWith(".mp4"))) c.type = "video";
       if (!c.width) c.width = c.type === "text" ? pw : pw;
       if (!c.height) c.height = c.type === "text" ? 200 : ph;
     }
@@ -161,7 +164,12 @@ export class ScriptEngine {
       try { this.setupProject(script); this.log.push("[DEBUG] setupProject OK"); } catch(e: any) { this.errors.push("[setupProject] " + e.message); return { success: false, log: this.log, errors: this.errors, clipIds: [], duration: Date.now() - start }; }
       try { if (script.media && Array.isArray(script.media)) { this.log.push("[DEBUG] importing " + script.media.length + " media..."); await this.importMedia(script.media); this.log.push("[DEBUG] importMedia OK"); } } catch(e: any) { this.errors.push("[importMedia] " + e.message + " | stack: " + (e.stack || "").split("\n")[1]); }
       try { if (script.tracks && Array.isArray(script.tracks)) { this.log.push("[DEBUG] creating " + script.tracks.length + " tracks..."); this.createTracks(script.tracks); this.log.push("[DEBUG] createTracks OK"); } } catch(e: any) { this.errors.push("[createTracks] " + e.message + " | stack: " + (e.stack || "").split("\n")[1]); }
-      try { this.log.push("[DEBUG] creating " + (script.clips ? script.clips.length : 0) + " clips..."); this.createClips(script.clips || []); this.log.push("[DEBUG] createClips OK"); } catch(e: any) { this.errors.push("[createClips] " + e.message + " | stack: " + (e.stack || "").split("\n")[1]); }
+      try { this.log.push("[DEBUG] creating " + (script.clips ? script.clips.length : 0) + " clips..."); this.createClips(script.clips || []); this.log.push("[DEBUG] createClips OK");
+      // I2V: clips with _video mediaId should be video type
+      const _clips = useEditorStore.getState().clips;
+      const _fixed = _clips.map(c => c.mediaId && c.mediaId.endsWith("_video") ? { ...c, type: "video" } : c);
+      useEditorStore.getState().setClips(_fixed);
+      this.log.push("[DEBUG] i2v clips reclassified to video"); } catch(e: any) { this.errors.push("[createClips] " + e.message + " | stack: " + (e.stack || "").split("\n")[1]); }
       try { if (script.actions && Array.isArray(script.actions)) { this.log.push("[DEBUG] executing " + script.actions.length + " actions..."); await this.executeActions(script.actions); this.log.push("[DEBUG] executeActions OK"); } } catch(e: any) { this.errors.push("[executeActions] " + e.message + " | stack: " + (e.stack || "").split("\n")[1]); }
       this.log.push("[ScriptEngine] Complete (" + (Date.now() - start) + "ms)");
     } catch (err: any) { this.errors.push("[ScriptEngine] Fatal: " + err.message); }
@@ -181,7 +189,7 @@ export class ScriptEngine {
       store.setProjectSize(project.width || DEFAULT_PROJECT.width, project.height || DEFAULT_PROJECT.height);
     }
     if (project.fps) store.setFps(project.fps);
-    this.log.push("[Project] " + (project.width || DEFAULT_PROJECT.width) + "x" + (project.height || DEFAULT_PROJECT.height) + " @ " + (project.fps || 30) + "fps");
+    this.log.push("[Project] " + (project.width || DEFAULT_PROJECT.width) + "x" + (project.height || DEFAULT_PROJECT.height) + " @ " + (project.fps || DEFAULT_PROJECT.fps) + "fps");
   }
 
   private async importMedia(mediaList: FlowScriptMedia[]) {
@@ -223,7 +231,7 @@ export class ScriptEngine {
                     url: i2vData.serverUrl,
                     localPath: i2vData.localPath,
                     duration: (i2vData.frames || 33) / (i2vData.fps || 16),
-                    width: 480, height: 832, size: 0
+                    width: i2vData.width || 480, height: i2vData.height || 832, size: 0
                   });
                   this.mediaIdMap.set(media.id, media.id + "_video");
                   this.log.push("[Media] I2V complete: " + i2vData.localPath);
@@ -333,7 +341,7 @@ export class ScriptEngine {
         const media = useEditorStore.getState().mediaItems.find(m => m.id === mediaId);
         if (media) { src = media.url || ""; localPath = media.localPath || ""; if (!src && localPath) { const fn = localPath.split(/[\\/]/).pop() || ""; src = "http://localhost:3456/media/" + fn; } }
       }
-      const clip = createDefaultClip({ id: actualId, name: sc.text || (sc.type + " clip"), type: (() => { const ext = (src || localPath || "").split(".").pop()?.toLowerCase(); if (sc.type === "video" && ext && ["png","jpg","jpeg","webp","bmp","gif"].includes(ext)) return "image"; return sc.type === "image" ? "image" : sc.type; })(), trackId, startFrame: sc.startFrame, durationFrames: sc.durationFrames, src, mediaId, localPath, x: sc.x || 0, y: sc.y || 0, width: sc.width || useEditorStore.getState().projectWidth || 1920, height: sc.height || useEditorStore.getState().projectHeight || 1080, rotation: sc.rotation || 0, opacity: sc.opacity ?? 100, volume: sc.volume ?? 100, muted: sc.muted || false, speed: sc.speed || 1, fadeIn: sc.fadeIn || 0, fadeOut: sc.fadeOut || 0, groupId: sc.groupId, sourceStart: sc.sourceStart || 0, sourceDuration: sc.sourceDuration, text: sc.text, fontFamily: sc.textStyle?.fontFamily, fontSize: sc.textStyle?.fontSize, fontColor: sc.textStyle?.fontColor, fontWeight: sc.textStyle?.fontWeight, textAlign: sc.textStyle?.textAlign, textBgColor: sc.textStyle?.backgroundColor, textBgOpacity: sc.textStyle?.backgroundOpacity, borderWidth: sc.textStyle?.borderWidth, borderColor: sc.textStyle?.borderColor, shadowX: sc.textStyle?.shadowX, shadowY: sc.textStyle?.shadowY, shadowColor: sc.textStyle?.shadowColor, lineHeight: sc.textStyle?.lineHeight });
+      const clip = createDefaultClip({ id: actualId, name: sc.text || (sc.type + " clip"), type: (() => { const ext = (src || localPath || "").split(".").pop()?.toLowerCase(); if (sc.type === "video" && ext && ["png","jpg","jpeg","webp","bmp","gif"].includes(ext)) return "image"; return sc.type === "image" ? "image" : sc.type; })(), trackId, startFrame: sc.startFrame, durationFrames: sc.durationFrames, src, mediaId, localPath, x: sc.x || 0, y: sc.y || 0, width: sc.width || useEditorStore.getState().projectWidth || DEFAULT_PROJECT.width, height: sc.height || useEditorStore.getState().projectHeight || DEFAULT_PROJECT.height, rotation: sc.rotation || 0, opacity: sc.opacity ?? 100, volume: sc.volume ?? 100, muted: sc.muted || false, speed: sc.speed || 1, fadeIn: sc.fadeIn || 0, fadeOut: sc.fadeOut || 0, groupId: sc.groupId, sourceStart: sc.sourceStart || 0, sourceDuration: sc.sourceDuration, text: sc.text, fontFamily: sc.textStyle?.fontFamily, fontSize: sc.textStyle?.fontSize, fontColor: sc.textStyle?.fontColor, fontWeight: sc.textStyle?.fontWeight, textAlign: sc.textStyle?.textAlign, textBgColor: sc.textStyle?.backgroundColor, textBgOpacity: sc.textStyle?.backgroundOpacity, borderWidth: sc.textStyle?.borderWidth, borderColor: sc.textStyle?.borderColor, shadowX: sc.textStyle?.shadowX, shadowY: sc.textStyle?.shadowY, shadowColor: sc.textStyle?.shadowColor, lineHeight: sc.textStyle?.lineHeight });
       if (sc.keyframes) (clip as any).keyframes = sc.keyframes;
       if (sc.effects) (clip as any).scriptEffects = sc.effects;
       const ripple = useEditorStore.getState().rippleMode;
