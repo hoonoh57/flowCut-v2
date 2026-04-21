@@ -114,6 +114,14 @@ export function deserializeProject(data: ProjectData) {
       const media = mediaMap.get(clone.mediaId)!;
       clone.src = media.url || media.objectUrl || '';
     }
+    // Auto-detect video clips: mediaId ending with _video or src ending with .mp4/.webm/.mov
+    if (clone.type === "image") {
+      const src = (clone.src || "").toLowerCase();
+      const mid = (clone.mediaId || "");
+      if (mid.endsWith("_video") || src.endsWith(".mp4") || src.endsWith(".webm") || src.endsWith(".mov")) {
+        clone.type = "video";
+      }
+    }
     return clone;
   });
 
