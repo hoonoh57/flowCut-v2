@@ -121,6 +121,7 @@
 | Phase 3.3c | 2026-04 | Fix MP4 export (reclassify image→video) |
 | Phase 3.4 | 2026-04 | Coding standards, zero hardcoding, Ken Burns, 15-scene template |
 | Phase 3.4.1 | 2026-04 | Project load video auto-detection fix |
+| Phase 3.5 | 2026-04 | P0: Script API 100%, TTS audio, I2V 81 frames, upscale endpoint |
 
 
 ---

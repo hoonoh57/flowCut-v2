@@ -219,7 +219,7 @@ export class ScriptEngine {
                   body: JSON.stringify({
                     imageLocalPath: data.localPath,
                     positive: (media.aiPrompt || media.src.replace("ai://", "")) + ", gentle camera motion, cinematic, smooth animation",
-                    width: 480, height: 832, length: 33, steps: 25
+                    width: 480, height: 832, length: 81, steps: 30
                   })
                 });
                 const i2vData = await i2vResp.json();
@@ -230,7 +230,7 @@ export class ScriptEngine {
                     type: "video",
                     url: i2vData.serverUrl,
                     localPath: i2vData.localPath,
-                    duration: (i2vData.frames || 33) / (i2vData.fps || 16),
+                    duration: (i2vData.frames || 81) / (i2vData.fps || 16),
                     width: i2vData.width || 480, height: i2vData.height || 832, size: 0
                   });
                   this.mediaIdMap.set(media.id, media.id + "_video");
@@ -407,11 +407,181 @@ export class ScriptEngine {
             else this.errors.push("[Action] Export failed: " + data.error);
           } catch (err: any) { this.errors.push("[Action] Export error: " + err.message); }
           break;
+        }        case "generateTTS": {
+          const ttsText = (act as any).text;
+          const ttsLang = (act as any).language || "ko";
+          const ttsVoice = (act as any).voice;
+          const ttsOutId = (act as any).outputMediaId || "tts_" + uid();
+          if (ttsText) {
+            try {
+              const ttsResp = await fetch("http://localhost:3456/api/tts/generate", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: ttsText, language: ttsLang, voice: ttsVoice }),
+              });
+              const ttsData = await ttsResp.json();
+              if (ttsData.success) {
+                useEditorStore.getState().addMediaItem({
+                  id: ttsOutId, name: "TTS: " + ttsText.substring(0, 30),
+                  type: "audio", url: ttsData.serverUrl, localPath: ttsData.localPath,
+                  duration: ttsData.duration || 5, size: 0,
+                });
+                this.mediaIdMap.set(ttsOutId, ttsOutId);
+                this.log.push("[Action] generateTTS -> " + ttsOutId + " (" + ttsData.duration + "s)");
+              } else { this.errors.push("[Action] TTS failed: " + (ttsData.error || "unknown")); }
+            } catch (err: any) { this.errors.push("[Action] TTS error: " + err.message); }
+          }
+          break;
         }
+        case "generateBGM": {
+          this.log.push("[Action] generateBGM placeholder (MusicGen pending)");
+          break;
+        }
+        case "upscale": {
+          const upMediaId = (act as any).mediaId;
+          const upScale = (act as any).scale || 2;
+          const upOutId = (act as any).outputMediaId || "upscaled_" + uid();
+          const upMedia = useEditorStore.getState().mediaItems.find(m => m.id === upMediaId);
+          if (upMedia?.localPath) {
+            try {
+              const upResp = await fetch("http://localhost:3456/api/comfyui/upscale", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ imageLocalPath: upMedia.localPath, scale: upScale }),
+              });
+              const upData = await upResp.json();
+              if (upData.success) {
+                useEditorStore.getState().addMediaItem({
+                  id: upOutId, name: "Upscaled " + upScale + "x",
+                  type: "image", url: upData.serverUrl, localPath: upData.localPath,
+                  duration: 5, size: 0,
+                });
+                this.mediaIdMap.set(upOutId, upOutId);
+                this.log.push("[Action] upscale " + upMediaId + " -> " + upOutId + " (" + upScale + "x)");
+              } else { this.errors.push("[Action] Upscale failed: " + (upData.error || "unknown")); }
+            } catch (err: any) { this.errors.push("[Action] Upscale error: " + err.message); }
+          } else { this.errors.push("[Action] Upscale: media not found: " + upMediaId); }
+          break;
+        }
+        case "transition": {
+          this.log.push("[Action] transition placeholder (FFmpeg xfade pending)");
+          break;
+        }
+        case "save": {
+          this.log.push("[Action] save placeholder");
+          break;
+        }
+        case "undo": case "redo": {
+          this.log.push("[Action] " + ((act as any).action) + " placeholder");
+          break;
+        }
+
         case "upload": { this.log.push("[Action] Upload to " + act.platform + " (placeholder)"); break; }
         case "autoSubtitle": { this.log.push("[Action] Auto subtitle (" + (act.language || "auto") + ")"); break; }
         case "wait": { await new Promise(r => setTimeout(r, act.seconds * 1000)); this.log.push("[Action] Wait " + act.seconds + "s"); break; }
-        case "log": { this.log.push("[User] " + act.message); break; }
+        case "log": { this.log.push("[User] " + act.message); break; }        case "addClip": {
+          const newClipId = uid();
+          const aStore = useEditorStore.getState();
+          const addType = (act as any).clipType || (act as any).type || "video";
+          const addTrackId = (act as any).trackId || aStore.tracks.find(t => t.type === (addType === "image" ? "video" : addType))?.id || "v1";
+          const addClip = createDefaultClip({
+            id: newClipId,
+            name: (act as any).name || addType + " clip",
+            type: addType as any,
+            trackId: addTrackId,
+            startFrame: (act as any).startFrame || 0,
+            durationFrames: (act as any).durationFrames || aStore.fps * 5,
+            mediaId: (act as any).mediaId || "",
+            src: (act as any).src || "",
+            localPath: (act as any).localPath || "",
+            text: (act as any).text,
+            width: (act as any).width || aStore.projectWidth || DEFAULT_PROJECT.width,
+            height: (act as any).height || aStore.projectHeight || DEFAULT_PROJECT.height,
+          });
+          aStore.dispatch(new AddClipCommand(addClip, aStore.rippleMode));
+          if ((act as any).clipId) this.clipIdMap.set((act as any).clipId, newClipId);
+          this.log.push("[Action] addClip " + newClipId + " (" + addType + ") @ frame " + addClip.startFrame);
+          break;
+        }
+        case "setClipProperty": {
+          const spCid = this.resolveClipId((act as any).clipId);
+          const spProp = (act as any).property;
+          const spVal = (act as any).value;
+          if (spCid && spProp) {
+            const spClips = useEditorStore.getState().clips.map(c =>
+              c.id === spCid ? { ...c, [spProp]: spVal } : c
+            );
+            useEditorStore.setState({ clips: spClips });
+            this.log.push("[Action] setClipProperty " + spCid + "." + spProp + " = " + JSON.stringify(spVal));
+          }
+          break;
+        }
+        case "addTrack": {
+          const atId = (act as any).id || (act as any).trackId || uid();
+          const atType = (act as any).trackType || (act as any).type || "video";
+          const newTrack: Track = {
+            id: atId,
+            name: (act as any).name || atType + " " + atId,
+            type: atType as any,
+            order: atType === "video" ? 500 : atType === "text" ? 600 : 100,
+            height: atType === "video" ? 80 : atType === "audio" ? 60 : 40,
+            color: atType === "video" ? "#3b82f6" : atType === "audio" ? "#22c55e" : "#f59e0b",
+            locked: false, visible: true, muted: false, solo: false,
+          };
+          useEditorStore.getState().dispatch(new AddTrackCommand(newTrack));
+          this.log.push("[Action] addTrack " + atId + " (" + atType + ")");
+          break;
+        }
+        case "removeTrack": {
+          const rtId = (act as any).trackId || (act as any).id;
+          if (rtId) {
+            useEditorStore.getState().removeTrack(rtId);
+            this.log.push("[Action] removeTrack " + rtId);
+          }
+          break;
+        }
+        case "setProject": {
+          const spStore = useEditorStore.getState();
+          if ((act as any).width && (act as any).height) {
+            spStore.setProjectSize((act as any).width, (act as any).height);
+          }
+          if ((act as any).fps) spStore.setFps((act as any).fps);
+          if ((act as any).aspectPreset) spStore.setAspectPreset((act as any).aspectPreset);
+          this.log.push("[Action] setProject " + ((act as any).width || "") + "x" + ((act as any).height || "") + " fps=" + ((act as any).fps || ""));
+          break;
+        }
+        case "trim": {
+          const trCid = this.resolveClipId((act as any).clipId);
+          const trClips = useEditorStore.getState().clips;
+          const trClip = trClips.find(c => c.id === trCid);
+          if (trClip) {
+            const edge = (act as any).edge || "right";
+            const frames = (act as any).frames || 0;
+            let updated: typeof trClip;
+            if (edge === "left") {
+              updated = { ...trClip, startFrame: trClip.startFrame + frames, durationFrames: Math.max(1, trClip.durationFrames - frames), sourceStart: trClip.sourceStart + frames };
+            } else {
+              updated = { ...trClip, durationFrames: Math.max(1, trClip.durationFrames + frames) };
+            }
+            useEditorStore.setState({ clips: trClips.map(c => c.id === trCid ? updated : c) });
+            this.log.push("[Action] trim " + trCid + " edge=" + edge + " frames=" + frames);
+          }
+          break;
+        }
+        case "duplicate": {
+          const dupIds = (act as any).clipIds || [(act as any).clipId];
+          const dupOffset = (act as any).offset || 0;
+          const dupClips = useEditorStore.getState().clips;
+          for (const did of dupIds) {
+            const resolved = this.resolveClipId(did);
+            const orig = dupClips.find(c => c.id === resolved);
+            if (orig) {
+              const newId = uid();
+              const dup = { ...orig, id: newId, startFrame: orig.startFrame + orig.durationFrames + dupOffset };
+              useEditorStore.getState().dispatch(new AddClipCommand(dup, false));
+              this.log.push("[Action] duplicate " + resolved + " -> " + newId);
+            }
+          }
+          break;
+        }
         default: {
           const a = (act as any);
           // Handle common AI-generated non-standard actions

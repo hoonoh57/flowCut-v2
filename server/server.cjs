@@ -979,7 +979,7 @@ app.post('/api/comfyui/generate-video', async (req, res) => {
             serverUrl: 'http://localhost:' + PORT + '/media/' + localName,
             outputType: 'video',
             fps: 16,
-            frames: template.workflow['55']?.inputs?.length || 33
+            frames: template.workflow['55']?.inputs?.length || 81
           });
         }
       }
@@ -1094,6 +1094,121 @@ app.post('/api/script/validate', (req, res) => {
     else script.clips.forEach(function(c, i) { if (!c.type) errors.push('clips[' + i + '].type required'); if (c.startFrame === undefined) errors.push('clips[' + i + '].startFrame required'); if (!c.durationFrames) errors.push('clips[' + i + '].durationFrames required'); });
   }
   res.json({ valid: errors.length === 0, errors: errors });
+});
+
+
+
+// =========================================================================
+// TTS (Text-to-Speech) via Edge TTS — Phase 3.5
+// =========================================================================
+app.post('/api/tts/generate', async (req, res) => {
+  const { text, language, voice, outputName } = req.body;
+  if (!text) return res.json({ success: false, error: 'No text provided' });
+
+  const voiceMap = {
+    'ko': 'ko-KR-SunHiNeural',
+    'ko-male': 'ko-KR-InJoonNeural',
+    'en': 'en-US-JennyNeural',
+    'en-male': 'en-US-GuyNeural',
+    'ja': 'ja-JP-NanamiNeural',
+    'zh': 'zh-CN-XiaoxiaoNeural',
+  };
+  const selectedVoice = voice || voiceMap[language || 'ko'] || voiceMap['ko'];
+  const outName = outputName || ('tts_' + Date.now() + '.mp3');
+  const outPath = path.join(MEDIA_DIR, outName);
+
+  console.log('[TTS] text:', text.substring(0, 80), '| voice:', selectedVoice);
+
+  try {
+    await new Promise((resolve, reject) => {
+      const proc = spawn('edge-tts', [
+        '--voice', selectedVoice,
+        '--text', text,
+        '--write-media', outPath,
+      ], { shell: true });
+
+      let stderr = '';
+      proc.stderr.on('data', d => stderr += d.toString());
+      proc.on('close', code => {
+        if (code === 0 && fs.existsSync(outPath)) resolve();
+        else reject(new Error('edge-tts failed (code ' + code + '): ' + stderr));
+      });
+      proc.on('error', reject);
+    });
+
+    // Get duration
+    let duration = 5;
+    try {
+      const probe = require('child_process').execSync(
+        '"E:/ffmpeg/bin/ffprobe.exe" -v quiet -show_entries format=duration -of csv=p=0 "' + outPath + '"',
+        { encoding: 'utf8', timeout: 10000 }
+      );
+      duration = parseFloat(probe.trim()) || 5;
+    } catch (e) { /* fallback */ }
+
+    console.log('[TTS] Success:', outPath, '(' + duration.toFixed(1) + 's)');
+    res.json({
+      success: true,
+      localPath: outPath,
+      servePath: '/media/' + outName,
+      serverUrl: 'http://localhost:' + PORT + '/media/' + outName,
+      duration,
+      voice: selectedVoice,
+    });
+  } catch (err) {
+    console.log('[TTS] Error:', err.message);
+    res.json({ success: false, error: err.message });
+  }
+});
+
+
+// =========================================================================
+// Upscale via ComfyUI RealESRGAN — Phase 3.5
+// =========================================================================
+app.post('/api/comfyui/upscale', async (req, res) => {
+  const { imageLocalPath, scale, outputName } = req.body;
+  if (!imageLocalPath || !fs.existsSync(imageLocalPath)) {
+    return res.json({ success: false, error: 'Image not found: ' + imageLocalPath });
+  }
+
+  const scaleFactor = scale || 2;
+  const outName = outputName || ('upscaled_' + Date.now() + '.png');
+  const outPath = path.join(MEDIA_DIR, outName);
+
+  console.log('[UPSCALE] input:', imageLocalPath, 'scale:', scaleFactor);
+
+  try {
+    // Use FFmpeg scale filter as fallback (lanczos)
+    // For RealESRGAN ComfyUI node, we would build a workflow — for now, high-quality FFmpeg upscale
+    await new Promise((resolve, reject) => {
+      const args = [
+        '-y', '-i', imageLocalPath,
+        '-vf', 'scale=iw*' + scaleFactor + ':ih*' + scaleFactor + ':flags=lanczos',
+        '-q:v', '2',
+        outPath
+      ];
+      const proc = spawn(FFMPEG, args);
+      let stderr = '';
+      proc.stderr.on('data', d => stderr += d.toString());
+      proc.on('close', code => {
+        if (code === 0 && fs.existsSync(outPath)) resolve();
+        else reject(new Error('FFmpeg upscale failed: ' + stderr.slice(-200)));
+      });
+      proc.on('error', reject);
+    });
+
+    console.log('[UPSCALE] Success:', outPath);
+    res.json({
+      success: true,
+      localPath: outPath,
+      servePath: '/media/' + outName,
+      serverUrl: 'http://localhost:' + PORT + '/media/' + outName,
+      scale: scaleFactor,
+    });
+  } catch (err) {
+    console.log('[UPSCALE] Error:', err.message);
+    res.json({ success: false, error: err.message });
+  }
 });
 
 const PORT = 3456;

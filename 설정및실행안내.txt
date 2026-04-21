@@ -1,0 +1,9 @@
+1. 위치: E:\2026\flowcut
+2. 서버:
+   1) comfyUI: E:\WuxiaStudio\engine\ComfyUI>run_nvidia_gpu.bat   <==실행
+       - http://127.0.0.1:8188/  <==자동 실행됨
+   2) ollama : C:\Users\haoru>ollama serve
+
+   3) npn run dev
+   4) node server/server.cjs
+   5) http://localhost:5173/
