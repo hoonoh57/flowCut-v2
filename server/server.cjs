@@ -255,10 +255,15 @@ app.post('/api/export', async (req, res) => {
 
     for (const clip of visualClips) {
       if (clip.type === 'image') {
-        const ext = (clip.localPath || '').toLowerCase();
-        const isAnimated = ext.endsWith('.webp') || ext.endsWith('.gif');
-        if (isAnimated) {
-          // Animated WEBP/GIF: treat as video (no -loop 1)
+        const extLow = (clip.localPath || '').toLowerCase();
+        const isVideo = extLow.endsWith('.mp4') || extLow.endsWith('.webm') || extLow.endsWith('.mov') || extLow.endsWith('.avi') || extLow.endsWith('.mkv');
+        const isAnimated = extLow.endsWith('.webp') || extLow.endsWith('.gif');
+        if (isVideo) {
+          // MP4/video file misclassified as image — treat as video
+          args.push('-i', clip.localPath);
+          clip.type = 'video';
+          console.log('[EXPORT] Video file (reclassified from image):', clip.localPath);
+        } else if (isAnimated) {
           args.push('-i', clip.localPath);
           console.log('[EXPORT] Animated file (no loop):', clip.localPath);
         } else {
