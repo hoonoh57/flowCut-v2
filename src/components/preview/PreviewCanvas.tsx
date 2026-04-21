@@ -118,7 +118,7 @@ const ClipMedia: React.FC<{ clip: Clip; isPlaying: boolean; currentFrame: number
       // Seek to exact frame position when paused
       if (Math.abs(v.currentTime - targetTime) > 0.01) v.currentTime = targetTime;
     }
-  }, [isPlaying, targetTime, clip.speed]);
+  }, [isPlaying, currentFrame, targetTime, clip.speed, clip.muted, clip.volume]);
 
   if (clip.type === 'video') {
     const vidSrc = getClipPreviewUrl(clip, mediaItems);

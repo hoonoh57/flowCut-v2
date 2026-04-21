@@ -485,7 +485,25 @@ export class ScriptEngine {
           const newClipId = uid();
           const aStore = useEditorStore.getState();
           const addType = (act as any).clipType || (act as any).type || "video";
-          const addTrackId = (act as any).trackId || aStore.tracks.find(t => t.type === (addType === "image" ? "video" : addType))?.id || "v1";
+          let addTrackId = (act as any).trackId || aStore.tracks.find(t => t.type === (addType === "image" ? "video" : addType))?.id || "";
+          if (!addTrackId || !aStore.tracks.find(t => t.id === addTrackId)) {
+            // Auto-create track if not exists
+            const autoTrackType = addType === "image" ? "video" : addType;
+            addTrackId = addTrackId || (autoTrackType === "video" ? "v1" : autoTrackType === "audio" ? "a1" : "t1");
+            if (!aStore.tracks.find(t => t.id === addTrackId)) {
+              const autoTrack: Track = {
+                id: addTrackId,
+                name: (autoTrackType === "video" ? "비디오" : autoTrackType === "audio" ? "오디오" : "텍스트") + " " + addTrackId,
+                type: autoTrackType as any,
+                order: autoTrackType === "video" ? 500 : autoTrackType === "text" ? 600 : 100,
+                height: autoTrackType === "video" ? 80 : autoTrackType === "audio" ? 60 : 40,
+                color: autoTrackType === "video" ? "#3b82f6" : autoTrackType === "audio" ? "#22c55e" : "#f59e0b",
+                locked: false, visible: true, muted: false, solo: false,
+              };
+              useEditorStore.getState().dispatch(new AddTrackCommand(autoTrack));
+              this.log.push("[Action] addClip: auto-created track " + addTrackId + " (" + autoTrackType + ")");
+            }
+          }
           const addClip = createDefaultClip({
             id: newClipId,
             name: (act as any).name || addType + " clip",

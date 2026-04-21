@@ -41,6 +41,8 @@ export const ExportPanel: React.FC = () => {
   const setExportProgress = useEditorStore(s => s.setExportProgress);
   const addExportLog = useEditorStore(s => s.addExportLog);
   const clearExportLog = useEditorStore(s => s.clearExportLog);
+  const inPoint = useEditorStore(s => s.inPoint);
+  const outPoint = useEditorStore(s => s.outPoint);
 
   const [sizeMode, setSizeMode] = useState<'original' | 'preset' | 'custom'>('original');
   const [selectedPreset, setSelectedPreset] = useState('fhd');
@@ -55,7 +57,10 @@ export const ExportPanel: React.FC = () => {
   const [serverOnline, setServerOnline] = useState(false);
   const [resultPath, setResultPath] = useState('');
 
-  const maxFrame = clips.reduce((mx, c) => Math.max(mx, c.startFrame + c.durationFrames), 0);
+  const fullMaxFrame = clips.reduce((mx, c) => Math.max(mx, c.startFrame + c.durationFrames), 0);
+  const useRange = inPoint !== null && outPoint !== null && outPoint > inPoint;
+  const maxFrame = useRange ? outPoint : fullMaxFrame;
+  const rangeStartFrame = useRange ? inPoint : 0;
   const durationSec = maxFrame / fps;
 
   // Check server
@@ -252,6 +257,7 @@ export const ExportPanel: React.FC = () => {
       {/* Info */}
       <div style={{ fontSize: 10, color: theme.colors.text.muted, padding: '6px 0', borderBottom: `1px solid ${theme.colors.border.subtle}` }}>
         {pw}x{ph} | {fps}fps | {durationSec.toFixed(1)}s | {maxFrame}f
+        {useRange && <span style={{ color: '#3b82f6', marginLeft: 4 }}> | Range: {(rangeStartFrame/fps).toFixed(1)}s ~ {(maxFrame/fps).toFixed(1)}s</span>}
       </div>
 
       {/* Server status */}

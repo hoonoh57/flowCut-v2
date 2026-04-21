@@ -1,4 +1,4 @@
-﻿import type { StateCreator } from 'zustand';
+import type { StateCreator } from 'zustand';
 import type { EditorStore } from '../editorStore';
 
 export type AspectPreset = '16:9' | '9:16' | '1:1' | '4:3' | '4:5' | '21:9';
@@ -33,6 +33,14 @@ export interface PlaybackSlice {
   setAspectPreset: (p: AspectPreset) => void;
   setFitMode: (m: FitMode) => void;
   setTotalFrames: (f: number) => void;
+  togglePlayback: () => void;
+  inPoint: number | null;
+  outPoint: number | null;
+  loopPlayback: boolean;
+  setInPoint: (f: number | null) => void;
+  setOutPoint: (f: number | null) => void;
+  setLoopPlayback: (v: boolean) => void;
+  clearInOut: () => void;
 }
 
 export const createPlaybackSlice: StateCreator<EditorStore, [], [], PlaybackSlice> = (set) => ({
@@ -58,4 +66,12 @@ export const createPlaybackSlice: StateCreator<EditorStore, [], [], PlaybackSlic
   },
   setFitMode: (m) => set({ fitMode: m }),
   setTotalFrames: (f) => set({ totalFrames: Math.max(1, f) }),
+  togglePlayback: () => set((state) => ({ isPlaying: !state.isPlaying })),
+  inPoint: null,
+  outPoint: null,
+  loopPlayback: false,
+  setInPoint: (f) => set({ inPoint: f }),
+  setOutPoint: (f) => set({ outPoint: f }),
+  setLoopPlayback: (v) => set({ loopPlayback: v }),
+  clearInOut: () => set({ inPoint: null, outPoint: null }),
 });

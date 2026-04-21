@@ -75,12 +75,31 @@ export function usePlayback() {
       const delta = now - prevTimeRef.current;
       const fd = 1000 / state.fps;
       if (delta >= fd) {
-        const adv = Math.floor(delta / fd);
-        const next = state.currentFrame + adv;
+        // Advance exactly 1 frame per tick to prevent jumps
+        const next = state.currentFrame + 1;
+        // In-Out range check
+        const outPt = state.outPoint;
+        const inPt = state.inPoint;
+        if (outPt !== null && next >= outPt) {
+          if (state.loopPlayback && inPt !== null) {
+            state.setCurrentFrame(inPt);
+            syncAudio(inPt);
+          } else {
+            state.setCurrentFrame(outPt);
+            state.setIsPlaying(false);
+            audioMapRef.current.forEach(el => el.pause());
+          }
+          return;
+        }
         const maxF = state.clips.reduce((mx, c) => Math.max(mx, c.startFrame + c.durationFrames), 0);
         if (next >= maxF && maxF > 0) {
-          state.setCurrentFrame(0); state.setIsPlaying(false);
-          audioMapRef.current.forEach(el => el.pause());
+          if (state.loopPlayback && inPt !== null) {
+            state.setCurrentFrame(inPt);
+            syncAudio(inPt);
+          } else {
+            state.setCurrentFrame(0); state.setIsPlaying(false);
+            audioMapRef.current.forEach(el => el.pause());
+          }
           return;
         }
         state.setCurrentFrame(next);

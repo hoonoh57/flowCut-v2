@@ -1142,9 +1142,12 @@ app.post('/api/tts/generate', async (req, res) => {
 
   try {
     await new Promise((resolve, reject) => {
-      const proc = spawn('edge-tts', [
+      // Write text to temp file to avoid encoding issues on Windows
+    const ttsTextFile = path.join(TEMP_DIR, 'tts_input_' + Date.now() + '.txt');
+    fs.writeFileSync(ttsTextFile, text, 'utf8');
+    const proc = spawn('edge-tts', [
         '--voice', selectedVoice,
-        '--text', text,
+        '--file', ttsTextFile,
         '--write-media', outPath,
       ], { shell: true });
 

@@ -416,6 +416,32 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      
+      // ============================================================
+      // IN/OUT RANGE (I = set in, O = set out, Esc = clear)
+      // ============================================================
+      if (key === 'i' && !ctrl && !alt && !shift) {
+        e.preventDefault();
+        s.setInPoint(s.currentFrame);
+        console.log('[Shortcut] In point:', s.currentFrame);
+        return;
+      }
+      if (key === 'o' && !ctrl && !alt && !shift) {
+        e.preventDefault();
+        s.setOutPoint(s.currentFrame);
+        console.log('[Shortcut] Out point:', s.currentFrame);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (s.inPoint !== null || s.outPoint !== null) {
+          s.clearInOut();
+          console.log('[Shortcut] In/Out cleared');
+        } else {
+          s.clearSelection();
+        }
+        return;
+      }
       // ============================================================
       // SAVE
       // ============================================================

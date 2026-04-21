@@ -15,6 +15,10 @@ export const TimelineControls: React.FC = () => {
   const fps = useEditorStore((s) => s.fps);
   const isPlaying = useEditorStore((s) => s.isPlaying);
   const setIsPlaying = useEditorStore((s) => s.setIsPlaying);
+  const loopPlayback = useEditorStore((s) => s.loopPlayback);
+  const setLoopPlayback = useEditorStore((s) => s.setLoopPlayback);
+  const inPoint = useEditorStore((s) => s.inPoint);
+  const outPoint = useEditorStore((s) => s.outPoint);
   const setCurrentFrame = useEditorStore((s) => s.setCurrentFrame);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);

@@ -420,6 +420,20 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
         <div style={{ position: 'absolute', right: 0, top: 0, width: fadeOutPx, height: '100%', background: 'linear-gradient(to left, rgba(0,0,0,0.55), transparent)', pointerEvents: 'none' }} />
       )}
 
+      
+      {/* Transition labels */}
+      {clip.fadeIn > 0 && (
+        <div style={{ position: 'absolute', left: 2, bottom: 2, fontSize: 8, color: 'rgba(255,255,255,0.6)',
+          background: 'rgba(0,0,0,0.5)', padding: '0 3px', borderRadius: 2, pointerEvents: 'none', zIndex: 26 }}>
+          FI {(clip.fadeIn / (fps || 30)).toFixed(1)}s
+        </div>
+      )}
+      {clip.fadeOut > 0 && (
+        <div style={{ position: 'absolute', right: 2, bottom: 2, fontSize: 8, color: 'rgba(255,255,255,0.6)',
+          background: 'rgba(0,0,0,0.5)', padding: '0 3px', borderRadius: 2, pointerEvents: 'none', zIndex: 26 }}>
+          FO {(clip.fadeOut / (fps || 30)).toFixed(1)}s
+        </div>
+      )}
       {/* Resize handles */}
       <div style={{ position: 'absolute', left: 0, top: 0, width: HANDLE_WIDTH, height: '100%', background: hoverEdge === 'left' ? 'rgba(255,255,255,0.25)' : 'transparent', borderRadius: '4px 0 0 4px' }} />
       <div style={{ position: 'absolute', right: 0, top: 0, width: HANDLE_WIDTH, height: '100%', background: hoverEdge === 'right' ? 'rgba(255,255,255,0.25)' : 'transparent', borderRadius: '0 4px 4px 0' }} />
@@ -427,7 +441,7 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
       {/* Label */}
       <div style={{ position: 'absolute', left: 8, top: isVideo ? 2 : (height / 2 - 7), right: 8, display: 'flex', alignItems: 'center', zIndex: 25, pointerEvents: 'none' }}>
         <span style={{ fontSize: 10, color: '#fff', flex: 1, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-          {clip.type === "video" ? "\uD83C\uDFAC " : clip.type === "image" ? "\uD83D\uDDBC " : ""}{clip.name}
+          {clip.type === "video" ? "🎬 " : clip.type === "image" ? "🖼️ " : ""}{clip.name}
         </span>
         <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)', marginLeft: 4, flexShrink: 0, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
           {durationSec}s
