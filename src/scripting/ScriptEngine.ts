@@ -10,6 +10,8 @@ import { AddTrackCommand } from "../stores/commands/AddTrackCommand";
 import type { Track } from "../types/track";
 import { injectWorldContext } from "./WorldContext";
 import type { FlowScriptWorld } from "./flowscript.schema";
+import { resolveCharacterRefs } from "../registry/CharacterRegistry";
+import { enhanceWithCinematic } from "./PromptEnhancer";
 
 export interface ScriptResult {
   success: boolean;
@@ -26,7 +28,21 @@ function normalizeScript(script: any): any {
 
   // World Context: inject before any processing
   if (script.world) {
+    // Resolve character \ from registry
+    if (script.world.characters) {
+      script.world.characters = resolveCharacterRefs(script.world.characters);
+    }
     script = injectWorldContext(script, script.world as FlowScriptWorld);
+    // Enhance AI prompts with cinematic keywords
+    if (script.media) {
+      for (const m of script.media) {
+        if ((m as any)._worldInjected && m.aiPrompt) {
+          const enhanced = enhanceWithCinematic(m.aiPrompt);
+          m.aiPrompt = enhanced.enhanced;
+          if (!m._negative) (m as any)._negative = enhanced.negative;
+        }
+      }
+    }
     if (script.media) { for (const m of script.media) { if ((m as any)._worldInjected) console.log('[WorldContext] aiPrompt:', ((m as any).aiPrompt || '').substring(0, 120)); } }
   }
 

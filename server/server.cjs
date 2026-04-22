@@ -1119,6 +1119,61 @@ app.post('/api/script/validate', (req, res) => {
 
 
 
+
+// =========================================================================
+// Character Registry API — Phase P2-W2
+// =========================================================================
+const REGISTRY_PATH = path.join(MEDIA_DIR, '..', 'storage', 'characters.json');
+
+function loadCharacterDB() {
+  try {
+    if (fs.existsSync(REGISTRY_PATH)) return JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf8'));
+  } catch (e) { console.log('[Registry] Load error:', e.message); }
+  return { version: '1.0', characters: {} };
+}
+
+function saveCharacterDB(db) {
+  const dir = path.dirname(REGISTRY_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(REGISTRY_PATH, JSON.stringify(db, null, 2), 'utf8');
+}
+
+app.post('/api/registry/character', (req, res) => {
+  const { key, name, seed, prompt, model, voice, motion } = req.body;
+  if (!key || !name) return res.json({ success: false, error: 'key and name required' });
+  const db = loadCharacterDB();
+  db.characters[key] = {
+    key, name, created: new Date().toISOString(),
+    generation: { model: model || 'DreamShaperXL_Turbo_v2', seed: seed || Math.floor(Math.random() * 1e12), prompt: prompt || '', negative: 'blurry, ugly, deformed', width: 1024, height: 1024 },
+    sheets: {}, wardrobeSheets: {},
+    voice: voice || { engine: 'edge-tts', preset: 'ko-KR-SunHiNeural', language: 'ko' },
+    motion: motion || { style: 'natural', defaultPose: 'relaxed' },
+  };
+  saveCharacterDB(db);
+  console.log('[Registry] Character registered:', key, 'seed:', db.characters[key].generation.seed);
+  res.json({ success: true, character: db.characters[key] });
+});
+
+app.get('/api/registry/character/:key', (req, res) => {
+  const db = loadCharacterDB();
+  const char = db.characters[req.params.key];
+  if (!char) return res.json({ success: false, error: 'Not found: ' + req.params.key });
+  res.json({ success: true, character: char });
+});
+
+app.get('/api/registry/characters', (req, res) => {
+  const db = loadCharacterDB();
+  res.json({ success: true, characters: Object.values(db.characters) });
+});
+
+app.delete('/api/registry/character/:key', (req, res) => {
+  const db = loadCharacterDB();
+  if (!db.characters[req.params.key]) return res.json({ success: false, error: 'Not found' });
+  delete db.characters[req.params.key];
+  saveCharacterDB(db);
+  res.json({ success: true });
+});
+
 // =========================================================================
 // TTS (Text-to-Speech) via Edge TTS — Phase 3.5
 // =========================================================================
