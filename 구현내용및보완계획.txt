@@ -1,0 +1,50 @@
+FlowCut 전체 기능 해설 (2026-04-22 기준)
+기본 NLE 에디터 (Phase 1-2)
+FlowCut의 토대입니다. 브라우저에서 동작하는 멀티트랙 비디오 에디터로, 비디오/이미지/오디오/텍스트 4종 트랙을 지원합니다. 미디어 파일을 드래그하면 타임라인에 클립이 생성되고, 클립의 이동/리사이즈/분할/삭제가 모두 가능합니다. 모든 편집 작업은 Command 패턴으로 구현되어 Ctrl+Z/Y로 무제한 Undo/Redo됩니다. 프리뷰 캔버스에서 실시간 렌더링을 보면서 편집할 수 있고, 16:9/9:16/1:1/4:3/4:5/21:9 비율을 한 클릭으로 전환합니다. FFmpeg를 통해 MP4/WebM/GIF로 내보내기하며, 텍스트 클립은 30종 이상의 프리셋 스타일(애니메이션 포함)을 제공합니다.
+
+AI 영상 생성 파이프라인 (Phase 3.1-3.3)
+프롬프트를 입력하면 ComfyUI를 통해 이미지를 생성하고, 그 이미지를 Wan2.2 모델로 5초(81프레임) 비디오로 변환합니다. 생성된 비디오는 자동으로 타임라인에 배치됩니다. Ollama(로컬 LLM)가 프롬프트를 분석하여 씬을 구성하고, VideoDirector가 Hook→Context→Payoff→Loop 구조의 beat 템플릿으로 15씬 영상을 자동 구성합니다. 이 모든 과정이 "프롬프트 하나"로 시작됩니다.
+
+코딩 표준 + 하드코딩 제거 (Phase 3.4)
+프로젝트 크기(1920x1080 등)를 코드에 직접 쓰지 않고 DEFAULT_PROJECT 상수에서 가져오는 규칙을 수립했습니다. 10개 파일의 하드코딩 위반을 수정하고, 값 우선순위 체인(스크립트 지정값 → editorStore → DEFAULT_PROJECT)을 확립했습니다. .ai-rules.json에 개발 환경 규칙을 명문화하여 PowerShell/Node.js 환경에서의 반복 에러를 방지합니다.
+
+FlowScript 액션 확장 (Phase 3.5)
+AI가 편집을 자동화하기 위한 스크립트 인프라입니다. 기존 14개 액션에서 27개로 확장하여 커버리지 52%에서 90%+로 끌어올렸습니다. 추가된 핵심 액션은 addClip(클립 직접 추가, 트랙 자동 생성 포함), setClipProperty(개별 속성 변경), addTrack/removeTrack, setProject(프로젝트 설정 변경), trim, duplicate입니다. 모든 액션은 브라우저 Console의 __flowcut.executeScript()로 테스트 검증되었습니다.
+
+TTS 오디오 파이프라인 (Phase 3.5)
+Edge TTS를 연동하여 텍스트를 음성으로 변환합니다. 한국어/영어/일본어/중국어 등 다국어를 지원하며, Windows 환경에서 한글 인코딩이 깨지는 문제를 파일 기반 입력(--file)으로 해결했습니다. generateTTS 액션으로 FlowScript에서 자동 호출 가능하고, 생성된 오디오는 미디어 패널에 자동 등록됩니다. 캐릭터별 다른 보이스 프리셋을 지정할 수 있어, 유나는 SunHi 보이스, 민호는 InJoon 보이스처럼 구분됩니다.
+
+I2V 클립 길이 연장 + 업스케일 (Phase 3.5)
+Image-to-Video 생성 프레임 수를 33프레임(2초)에서 81프레임(5초)으로 늘렸습니다. video-i2v.json 워크플로우와 ScriptEngine/server.cjs 모두 동기화되어 있습니다. 업스케일 엔드포인트(/api/comfyui/upscale)를 추가하여 480p 생성물을 FFmpeg Lanczos 필터로 확대할 수 있고, upscale 액션으로 FlowScript에서 호출 가능합니다.
+
+크로스페이드 전환 + 타임라인 강화 (Phase 3.6)
+FFmpeg xfade 필터를 위한 buildXfadeFilter 함수를 추가하고, VideoDirector가 beat 사이에 dissolve/fade 전환 정보를 FlowScript에 포함시킵니다. 타임라인 클립에 비디오(🎬)/이미지(🖼) 타입 아이콘이 표시되고, fadeIn/fadeOut이 있는 클립에 FI/FO 레이블이 나타납니다. 프리뷰 캔버스의 비디오 동기화를 개선하여, 정지 시 정확한 프레임 seek와 재생 시 drift correction(0.15초 임계값)이 동작합니다.
+
+버그 수정 (Phase 3.6.1)
+텍스트 클립 추가 시 텍스트 트랙이 없으면 자동 생성하도록 addClip 액션을 수정했습니다. Space bar로 재생/정지하는 togglePlayback 함수가 playbackSlice에 누락되어 모든 키보드 단축키가 먹통이 되는 문제를 해결했습니다. 재생 시 프레임이 한번에 여러 프레임을 건너뛰어 커서가 끊기는 문제를 1프레임씩 정확히 진행하도록 수정했습니다.
+
+In-Out Range 작업 영역 (Phase 3.7)
+프로 NLE의 필수 기능인 작업 영역을 구현했습니다. I키로 시작점, O키로 끝점을 설정하면 타임라인 Ruler에 파란색 구간이 표시됩니다. 재생 시 Out point에서 자동 정지하며, 루프 모드를 켜면 In point로 돌아가 반복 재생합니다. Export 패널에서 In-Out 구간이 설정되어 있으면 해당 구간만 내보냅니다. Esc키로 구간을 해제합니다.
+
+Open Architecture — Provider Interface (P2 Week 1)
+FlowCut이 ComfyUI, 특정 GPU, 특정 클라우드에 종속되지 않도록 하는 추상화 계층입니다. FlowCutProvider 인터페이스를 정의하고, ProviderManager가 이미지/비디오/TTS/보간/업스케일/LLM 6개 영역의 활성 Provider를 관리합니다. 사용자는 flowcut.providers.json에서 "active": "comfyui"를 "active": "fal"로 바꾸기만 하면 코드 변경 없이 클라우드 API로 전환됩니다. 체이닝 전략도 Provider 능력에 따라 S~D 등급으로 자동 선택됩니다.
+
+World Context — 영상 세계관 일관성 (P2 Week 1)
+FlowCut의 핵심 차별화 기능입니다. FlowScript에 world 섹션을 추가하여 캐릭터(외모+복장+변형), 장소(설명+소품+조명), 소품, 시대, 장르, 비주얼 스타일을 한번 정의하면 모든 씬 생성에 자동 주입됩니다. 경쟁 제품(Runway, Kling)이 "캐릭터 얼굴" 한 가지에만 집중하는 반면, FlowCut은 복장 변형, 장소 소품, 시대 장르, 스타일 오버라이드까지 영상의 전체 세계관을 구조적으로 관리합니다.
+
+검증 결과: 사용자가 "reading letter at window" 7단어만 입력하면, World Context가 캐릭터/복장/장소/스타일을 자동 주입하여 40+ 단어의 상세 프롬프트로 확장합니다. 동일 시드(847291036)로 여러 씬을 생성하면 동일 인물이 유지됩니다.
+
+캐릭터 레지스트리 (P2 Week 2)
+캐릭터를 시드 번호 + 프롬프트와 함께 DB에 등록하고, 키 하나("yuna")로 언제든 호출하는 시스템입니다. 서버 API(/api/registry/character)로 등록/조회/삭제가 가능하고, localStorage에도 저장됩니다. World Context에서 "$ref": "registry:yuna"로 참조하면 등록된 캐릭터 정보가 자동 로드됩니다. "$seed" 단축 표기도 지원하여 시드 번호만으로 캐릭터를 지정할 수 있습니다.
+
+시네마틱 프롬프트 강화 (P2 Week 2)
+42가지 카메라 무브먼트(Dolly/Pan/Tilt/Tracking/Crane/Orbit/Zoom/Steadicam/Handheld/Aerial/Static/Special/Hyperlapse/Cinematic)가 데이터베이스화되어 있습니다. 씬 유형을 자동 감지(portrait/landscape/action/dialogue/emotion/walk/food/product/epic)하고, 에너지 레벨(low/medium/high)에 따라 적절한 카메라 움직임, 조명, 샷 사이즈를 자동 선택합니다. LLM 강화 모드(enhanceWithLLM)도 지원하여 Ollama/OpenAI가 씬을 분석하고 시네마틱 키워드를 추가합니다.
+
+검증 결과: 프롬프트에 자동으로 "medium close-up, chest up, orbiting counter-clockwise around subject, Rembrandt lighting, dramatic side light, 8K, highly detailed, professional photography"가 추가됩니다.
+
+현재 위치와 남은 계획
+완료: P0(코어) + P1(단기) + P2 Week 1-2(World Context + 캐릭터 + 프롬프트 강화)
+
+남은 P2: Week 3(무한 비디오 체이닝 + 모션 라이브러리 + 프로젝트 템플릿), Week 4(클라우드 Provider 구현 + 배치 Export + 통합 테스트)
+
+P3(장기): 클라우드 GPU 옵션, 립싱크/아바타, 실시간 협업, 플러그인 시스템
