@@ -1,0 +1,48 @@
+{
+  "env": {
+    "os": "Windows",
+    "shell": "PowerShell",
+    "nodeType": "module",
+    "scriptExt": ".cjs",
+    "projectRoot": "E:/2026/flowcut",
+    "ffmpeg": "E:/ffmpeg/bin/ffmpeg.exe",
+    "comfyui": "http://127.0.0.1:8188",
+    "ollama": "http://localhost:11434",
+    "serverPort": 3456,
+    "gpu": "RTX 4070",
+    "nodeVersion": "22.13.1",
+    "tsc": "npx tsc --noEmit"
+  },
+  "fileOps": {
+    "createNewFile": "VSCode paste (never use PowerShell here-string for Korean)",
+    "modifyExisting": "PowerShell Get-Content -replace then WriteAllText UTF8 no BOM",
+    "complexMultilineInsert": "Set-Content .cjs file then node execute then delete",
+    "writeAllTextPattern": "[System.IO.File]::WriteAllText((Resolve-Path $file).Path, $content, [System.Text.UTF8Encoding]::new($false))"
+  },
+  "rules": [
+    "Script files MUST use .cjs extension (package.json type=module)",
+    "NEVER use node -e with Korean characters (CP949 encoding breaks)",
+    "NEVER use PowerShell here-string @' '@ with backtick or dollar sign inside",
+    "NEVER use unicode escape \\uXXXX for Korean in generated code",
+    "ALWAYS include verification step after every regex replacement",
+    "ALWAYS run tsc --noEmit before suggesting git push",
+    "ALWAYS provide single executable block (no multi-step guessing)",
+    "NEVER retry the same failing approach - use different method immediately",
+    "PowerShell -replace: escape special chars with [regex]::Escape() for literal match",
+    "PowerShell -replace: avoid complex multiline patterns, use .cjs instead",
+    "Set-Content Korean text: ALWAYS specify -Encoding UTF8",
+    "No hardcoding: use DEFAULT_PROJECT or constants only",
+    "Provider config goes in flowcut.providers.json",
+    "All ComfyUI workflows in src/config/workflows/*.json",
+    "Server constants at top of server/server.cjs"
+  ],
+  "knownPitfalls": [
+    "PowerShell here-string @'...'@ breaks with ( ) inside on some PS versions",
+    "node -e with single quotes: Korean chars become CP949 garbage on Windows",
+    ".js files fail with require() because package.json type=module",
+    "Git add specific file before commit, or use git add -A",
+    "Vite HMR may not reflect playbackSlice changes - restart npm run dev",
+    "edge-tts --text with Korean fails on Windows - use --file instead",
+    "ComfyUI generate endpoint: width/height for Wan22ImageToVideoLatent node"
+  ]
+}
