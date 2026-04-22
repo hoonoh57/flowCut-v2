@@ -210,7 +210,7 @@ export class ScriptEngine {
         try {
           const resp = await fetch("http://localhost:3456/api/comfyui/generate", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ workflowId: (media.aiWorkflow === "image-to-video" || media.aiWorkflow === "video-i2v") ? "background-scene" : (media.aiWorkflow || "background-scene"), positive: (() => { const p = media.aiPrompt || media.src.replace("ai://", ""); this.log.push("[Media] ComfyUI positive: " + p.substring(0, 120)); return p; })(), width: 1024, height: 1024 }),
+            body: JSON.stringify({ workflowId: (media.aiWorkflow === "image-to-video" || media.aiWorkflow === "video-i2v") ? "background-scene" : (media.aiWorkflow || "background-scene"), positive: (() => { const p = media.aiPrompt || media.src.replace("ai://", ""); this.log.push("[Media] ComfyUI positive: " + p.substring(0, 120)); return p; })(), width: 1024, height: 1024, seed: (media as any)._seeds ? Object.values((media as any)._seeds)[0] as number : undefined }),
           });
           const data = await resp.json();
           if (data.success) {
