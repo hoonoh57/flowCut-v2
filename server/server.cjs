@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
@@ -346,7 +346,22 @@ app.post('/api/export', async (req, res) => {
       const ovX = rect.fullscreen ? 0 : rect.x;
       const ovY = rect.fullscreen ? 0 : rect.y;
       const SQ = String.fromCharCode(39);
-      const overlayFilter = lastVideo + '[' + scaledLabel + ']overlay=' + ovX + ':' + ovY + ':enable=' + SQ + 'between(t,' + startSec + ',' + endSec + ')' + SQ + '[' + ovLabel + ']';
+
+      // === Cross-fade support: check transitionIn ===
+      let overlayFilter;
+      const trIn = clip.transitionIn;
+      if (trIn && trIn.type === 'dissolve' && trIn.duration > 0) {
+        const fadeDurSec = (trIn.duration / fps).toFixed(3);
+        const fadeStartSec = startSec;
+        const fadeEndSec = (parseFloat(startSec) + parseFloat(fadeDurSec)).toFixed(3);
+        // Add fade-in alpha to the scaled input
+        const fadeScLabel = 'fsc' + overlayCount;
+        filterParts.push('[' + scaledLabel + ']format=yuva420p,fade=t=in:st=' + fadeStartSec + ':d=' + fadeDurSec + ':alpha=1[' + fadeScLabel + ']');
+        overlayFilter = lastVideo + '[' + fadeScLabel + ']overlay=' + ovX + ':' + ovY + ':format=auto:enable=' + SQ + 'between(t,' + startSec + ',' + endSec + ')' + SQ + '[' + ovLabel + ']';
+        console.log('[EXPORT] Cross-fade dissolve: ' + fadeDurSec + 's at t=' + startSec);
+      } else {
+        overlayFilter = lastVideo + '[' + scaledLabel + ']overlay=' + ovX + ':' + ovY + ':enable=' + SQ + 'between(t,' + startSec + ',' + endSec + ')' + SQ + '[' + ovLabel + ']';
+      }
       filterParts.push(overlayFilter);
 
       lastVideo = '[' + ovLabel + ']';
@@ -1281,6 +1296,239 @@ async function adjustAudioSpeed(inputPath, targetDuration, outPath) {
     proc.on('error', () => resolve(false));
   });
 }
+
+// =========================================================================
+// BGM Generation & Library (B3)
+// =========================================================================
+const BGM_LIBRARY = [
+  { id: 'ambient-calm', name: 'Calm Ambient', mood: 'calm', genre: 'ambient', bpm: 70, key: 'C', description: 'Peaceful ambient pad', tags: 'ambient, calm, peaceful, piano, soft, slow, relaxing, atmospheric' },
+  { id: 'ambient-warm', name: 'Warm Sunset', mood: 'warm', genre: 'ambient', bpm: 80, key: 'G', description: 'Warm atmospheric tone', tags: 'ambient, warm, sunset, acoustic guitar, soft, mellow, golden hour, gentle' },
+  { id: 'cinematic-epic', name: 'Epic Rise', mood: 'epic', genre: 'cinematic', bpm: 120, key: 'D', description: 'Building cinematic tension', tags: 'cinematic, epic, orchestral, drums, building, powerful, dramatic, strings, brass' },
+  { id: 'cinematic-emotional', name: 'Emotional Journey', mood: 'emotional', genre: 'cinematic', bpm: 90, key: 'Am', description: 'Emotional piano-like tone', tags: 'cinematic, emotional, piano, strings, sad, beautiful, heartfelt, slow' },
+  { id: 'upbeat-pop', name: 'Upbeat Energy', mood: 'upbeat', genre: 'pop', bpm: 128, key: 'E', description: 'Energetic upbeat rhythm', tags: 'pop, upbeat, energetic, drums, bass, synthesizer, fast, happy, dance' },
+  { id: 'lofi-chill', name: 'Lo-fi Chill', mood: 'chill', genre: 'lofi', bpm: 85, key: 'F', description: 'Relaxed lo-fi beat', tags: 'lofi, chill, hip-hop, vinyl, piano, relaxed, study, beats, mellow' },
+  { id: 'dark-tension', name: 'Dark Tension', mood: 'tense', genre: 'cinematic', bpm: 100, key: 'Dm', description: 'Suspenseful dark tone', tags: 'dark, tense, suspense, cinematic, horror, drone, low, ominous, thriller' },
+  { id: 'nature-peaceful', name: 'Nature Peace', mood: 'peaceful', genre: 'ambient', bpm: 60, key: 'C', description: 'Nature-inspired calm', tags: 'nature, peaceful, ambient, flute, birds, gentle, meditation, slow, healing' },
+  { id: 'corporate-bright', name: 'Corporate Bright', mood: 'bright', genre: 'corporate', bpm: 110, key: 'G', description: 'Clean corporate background', tags: 'corporate, bright, clean, piano, acoustic, professional, motivational, uplifting' },
+  { id: 'travel-adventure', name: 'Adventure', mood: 'adventurous', genre: 'world', bpm: 115, key: 'A', description: 'Travel adventure vibe', tags: 'adventure, travel, world music, drums, guitar, energetic, exploration, cinematic' },
+];
+
+// Frequency map for musical keys
+const KEY_FREQ = { 'C': 261.63, 'D': 293.66, 'E': 329.63, 'F': 349.23, 'G': 392.00, 'A': 440.00, 'Am': 440.00, 'Dm': 293.66 };
+
+app.get('/api/bgm/library', (req, res) => {
+  res.json({ success: true, items: BGM_LIBRARY });
+});
+
+app.post('/api/bgm/generate', async (req, res) => {
+  const { bgmId, mood, duration, volume, fadeIn, fadeOut, tags, lyrics, duckingEnabled, duckingLevel, outputName } = req.body;
+  const durSec = Math.min(duration || 30, 120); // ACE-Step max ~120s
+  const fadeInSec = fadeIn || 2;
+  const fadeOutSec = fadeOut || 3;
+  const vol = (volume || 50) / 100;
+
+  console.log('');
+  console.log('========================================');
+  console.log('[BGM] START - ACE-Step');
+  console.log('[BGM] bgmId:', bgmId, '| mood:', mood, '| duration:', durSec + 's');
+  console.log('========================================');
+
+  let preset = BGM_LIBRARY.find(b => b.id === bgmId);
+  if (!preset && mood) preset = BGM_LIBRARY.find(b => b.mood === mood);
+  if (!preset) preset = BGM_LIBRARY[0];
+
+  const bgmTags = tags || preset.tags || 'ambient, calm, instrumental';
+  const bgmLyrics = lyrics || '[instrumental]';
+
+  // Load ACE-Step workflow
+  const wfPath = path.join(__dirname, '..', 'src', 'config', 'workflows', 'bgm-ace-step.json');
+  if (!fs.existsSync(wfPath)) {
+    console.log('[BGM] ACE-Step workflow not found, falling back to FFmpeg');
+    return bgmFallbackFFmpeg(req, res, preset, durSec, vol, fadeInSec, fadeOutSec, outputName);
+  }
+
+  const template = JSON.parse(fs.readFileSync(wfPath, 'utf8'));
+  const workflow = JSON.parse(JSON.stringify(template.workflow));
+
+  // Fill parameters
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (!node.inputs) continue;
+    for (const [key, val] of Object.entries(node.inputs)) {
+      if (val === '{{tags}}') node.inputs[key] = bgmTags;
+      if (val === '{{lyrics}}') node.inputs[key] = bgmLyrics;
+      if (val === '{{duration}}') node.inputs[key] = durSec;
+    }
+    if (node.class_type === 'KSampler') {
+      node.inputs.seed = Math.floor(Math.random() * 1e15);
+    }
+  }
+
+  console.log('[BGM] Tags:', bgmTags.substring(0, 80));
+  console.log('[BGM] Lyrics:', bgmLyrics.substring(0, 60));
+  console.log('[BGM] Duration:', durSec + 's');
+
+  // Submit to ComfyUI
+  const payload = JSON.stringify({ prompt: workflow });
+  let queueData;
+  try {
+    const queueResp = await fetch('http://127.0.0.1:8188/prompt', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload,
+    });
+    queueData = await queueResp.json();
+  } catch (err) {
+    console.log('[BGM] ComfyUI connection error:', err.message, '— falling back to FFmpeg');
+    return bgmFallbackFFmpeg(req, res, preset, durSec, vol, fadeInSec, fadeOutSec, outputName);
+  }
+
+  if (queueData.error) {
+    console.log('[BGM] ComfyUI error:', JSON.stringify(queueData.error).substring(0, 300));
+    return bgmFallbackFFmpeg(req, res, preset, durSec, vol, fadeInSec, fadeOutSec, outputName);
+  }
+
+  const promptId = queueData.prompt_id;
+  if (!promptId) {
+    console.log('[BGM] No prompt_id');
+    return bgmFallbackFFmpeg(req, res, preset, durSec, vol, fadeInSec, fadeOutSec, outputName);
+  }
+
+  console.log('[BGM] prompt_id:', promptId, '| polling...');
+
+  // Poll for result
+  for (let i = 0; i < 120; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    if (i % 10 === 0) console.log('[BGM] Polling... (' + (i * 2) + 's)');
+    try {
+      const histResp = await fetch('http://127.0.0.1:8188/history/' + promptId);
+      const histData = await histResp.json();
+      const result = histData[promptId];
+      if (!result) continue;
+      if (result.status?.status_str === 'error') {
+        console.log('[BGM] Generation error — falling back');
+        return bgmFallbackFFmpeg(req, res, preset, durSec, vol, fadeInSec, fadeOutSec, outputName);
+      }
+      const outputs = result.outputs;
+      if (!outputs) continue;
+
+      // Find audio output from SaveAudioMP3 (node 59)
+      for (const [nodeId, nodeOut] of Object.entries(outputs)) {
+        const audios = nodeOut.audio || nodeOut.gifs || [];
+        for (const audio of audios) {
+          const fn = audio.filename;
+          const subfolder = audio.subfolder || '';
+          console.log('[BGM] Audio ready:', fn, 'subfolder:', subfolder);
+
+          // Download from ComfyUI
+          const viewUrl = 'http://127.0.0.1:8188/view?' +
+            'filename=' + encodeURIComponent(fn) +
+            '&subfolder=' + encodeURIComponent(subfolder) +
+            '&type=output';
+          const dlResp = await fetch(viewUrl);
+          if (!dlResp.ok) {
+            console.log('[BGM] Download failed:', dlResp.status);
+            continue;
+          }
+          const buffer = Buffer.from(await dlResp.arrayBuffer());
+          const outName = outputName || ('bgm_' + Date.now() + '.mp3');
+          const outPath = path.join(MEDIA_DIR, outName);
+
+          // Apply fade in/out and volume via FFmpeg
+          const tempRaw = path.join(TEMP_DIR, 'bgm_raw_' + Date.now() + path.extname(fn));
+          fs.writeFileSync(tempRaw, buffer);
+
+          const fadeFilter = 'afade=t=in:st=0:d=' + fadeInSec +
+            ',afade=t=out:st=' + Math.max(0, durSec - fadeOutSec) + ':d=' + fadeOutSec +
+            ',volume=' + vol.toFixed(2);
+
+          try {
+            await new Promise((resolve, reject) => {
+              const proc = spawn(FFMPEG, [
+                '-y', '-hide_banner', '-i', tempRaw,
+                '-af', fadeFilter,
+                '-ar', '44100', '-ac', '2',
+                '-c:a', 'libmp3lame', '-b:a', '192k',
+                '-t', String(durSec), outPath
+              ]);
+              let stderr = '';
+              proc.stderr.on('data', d => stderr += d);
+              proc.on('close', code => code === 0 ? resolve() : reject(new Error('FFmpeg exit ' + code)));
+              proc.on('error', reject);
+            });
+            try { fs.unlinkSync(tempRaw); } catch {}
+          } catch (ffErr) {
+            // If FFmpeg post-process fails, just copy the raw file
+            console.log('[BGM] FFmpeg post-process failed:', ffErr.message);
+            fs.copyFileSync(tempRaw, outPath);
+            try { fs.unlinkSync(tempRaw); } catch {}
+          }
+
+          const stats = fs.statSync(outPath);
+          const sizeMB = (stats.size / 1048576).toFixed(2);
+          console.log('[BGM] Done:', outPath, '(' + sizeMB + 'MB)');
+
+          return res.json({
+            success: true, localPath: outPath,
+            serverUrl: 'http://localhost:3456/media/' + outName,
+            fileName: outName, duration: durSec, preset: preset.name,
+            mood: preset.mood, genre: preset.genre, sizeMB: parseFloat(sizeMB),
+            source: 'ace-step',
+            duckingEnabled: duckingEnabled || false, duckingLevel: duckingLevel || 30,
+          });
+        }
+      }
+    } catch (pollErr) {
+      console.log('[BGM] Poll error:', pollErr.message);
+    }
+  }
+
+  console.log('[BGM] Timeout — falling back to FFmpeg');
+  return bgmFallbackFFmpeg(req, res, preset, durSec, vol, fadeInSec, fadeOutSec, outputName);
+});
+
+// FFmpeg fallback for when ComfyUI/ACE-Step is unavailable
+async function bgmFallbackFFmpeg(req, res, preset, durSec, vol, fadeInSec, fadeOutSec, outputName) {
+  const outName = outputName || ('bgm_' + Date.now() + '.mp3');
+  const outPath = path.join(MEDIA_DIR, outName);
+  const baseFreq = { 'C':261.63,'D':293.66,'E':329.63,'F':349.23,'G':392,'A':440,'Am':440,'Dm':293.66 }[preset.key] || 261.63;
+
+  const filterComplex = [
+    'sine=frequency=' + baseFreq + ':sample_rate=44100:duration=' + durSec + '[s1]',
+    'sine=frequency=' + (baseFreq * 1.5) + ':sample_rate=44100:duration=' + durSec + '[s2]',
+    'anoisesrc=d=' + durSec + ':c=pink:a=0.03:r=44100[noise]',
+    '[s1]volume=0.3[v1]', '[s2]volume=0.15[v2]',
+    '[v1][v2][noise]amix=inputs=3:duration=longest:normalize=0[mixed]',
+    '[mixed]lowpass=f=800,highpass=f=80,tremolo=f=0.1:d=0.3[trem]',
+    '[trem]afade=t=in:st=0:d=' + fadeInSec + ',afade=t=out:st=' + (durSec - fadeOutSec) + ':d=' + fadeOutSec + ',volume=' + vol + '[out]',
+  ].join(';');
+
+  console.log('[BGM-FALLBACK] Generating sine-based BGM...');
+  try {
+    await new Promise((resolve, reject) => {
+      const proc = spawn(FFMPEG, ['-y','-hide_banner','-filter_complex',filterComplex,'-map','[out]','-ar','44100','-ac','2','-c:a','libmp3lame','-b:a','192k','-t',String(durSec),outPath]);
+      let err = '';
+      proc.stderr.on('data', d => err += d);
+      proc.on('close', code => code === 0 ? resolve() : reject(new Error('exit ' + code)));
+      proc.on('error', reject);
+    });
+    const stats = fs.statSync(outPath);
+    return res.json({
+      success: true, localPath: outPath,
+      serverUrl: 'http://localhost:3456/media/' + outName,
+      fileName: outName, duration: durSec, preset: preset.name,
+      mood: preset.mood, genre: preset.genre, sizeMB: parseFloat((stats.size/1048576).toFixed(2)),
+      source: 'ffmpeg-fallback',
+      duckingEnabled: req.body.duckingEnabled || false, duckingLevel: req.body.duckingLevel || 30,
+    });
+  } catch (err) {
+    return res.json({ success: false, error: 'Fallback failed: ' + err.message });
+  }
+}
+app.get('/api/bgm/moods', (req, res) => {
+  const moods = [...new Set(BGM_LIBRARY.map(b => b.mood))];
+  const genres = [...new Set(BGM_LIBRARY.map(b => b.genre))];
+  res.json({ success: true, moods, genres });
+});
+
+
 
 app.post('/api/tts/generate', async (req, res) => {
   const { text, language, voice, outputName, rate, pitch, targetDuration, splitMode } = req.body;

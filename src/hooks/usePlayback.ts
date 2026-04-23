@@ -27,9 +27,10 @@ export function usePlayback() {
   useEffect(() => {
     const map = audioMapRef.current;
     const audioOnlyClips = clips.filter(c => c.type === 'audio');
+    const mediaItems = useEditorStore.getState().mediaItems || [];
 
     for (const clip of audioOnlyClips) {
-      const src = getClipPreviewUrl(clip);
+      const src = getClipPreviewUrl(clip, mediaItems);
       if (!src) continue;
       const existing = map.get(clip.id);
       if (existing) {

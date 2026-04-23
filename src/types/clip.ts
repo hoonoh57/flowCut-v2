@@ -61,6 +61,16 @@ export interface Clip {
   animationDelay?: number;     // per-char delay in ms (default 50)
 
   groupId?: string;  // clips with same groupId move/delete together
+
+  // --- Transition ---
+  transitionIn?: {
+    type: 'dissolve' | 'fade' | 'wipeleft' | 'wiperight' | 'wipeup' | 'wipedown' | 'slideleft' | 'slideright';
+    duration: number;  // frames
+  };
+  transitionOut?: {
+    type: 'dissolve' | 'fade' | 'wipeleft' | 'wiperight' | 'wipeup' | 'wipedown' | 'slideleft' | 'slideright';
+    duration: number;  // frames
+  };
   locked: boolean;
   visible: boolean;
 }

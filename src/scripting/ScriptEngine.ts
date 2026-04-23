@@ -1,4 +1,4 @@
-﻿import type { FlowScript, FlowScriptAction, FlowScriptClip, FlowScriptMedia, FlowScriptTrack } from "./flowscript.schema";
+import type { FlowScript, FlowScriptAction, FlowScriptClip, FlowScriptMedia, FlowScriptTrack } from "./flowscript.schema";
 import { DEFAULT_PROJECT } from '../types/project';
 import { useEditorStore } from "../stores/editorStore";
 import { createDefaultClip } from "../types/clip";
@@ -446,10 +446,31 @@ export class ScriptEngine {
         const media = useEditorStore.getState().mediaItems.find(m => m.id === mediaId);
         if (media) { src = media.url || ""; localPath = media.localPath || ""; if (!src && localPath) { const fn = localPath.split(/[\\/]/).pop() || ""; src = "http://localhost:3456/media/" + fn; } }
       }
-      const clip = createDefaultClip({ id: actualId, name: sc.text || (sc.type + " clip"), type: (() => { const ext = (src || localPath || "").split(".").pop()?.toLowerCase(); if (sc.type === "video" && ext && ["png","jpg","jpeg","webp","bmp","gif"].includes(ext)) return "image"; return sc.type === "image" ? "image" : sc.type; })(), trackId, startFrame: sc.startFrame, durationFrames: sc.durationFrames, src, mediaId, localPath, x: sc.x || 0, y: sc.y || 0, width: sc.width || useEditorStore.getState().projectWidth || DEFAULT_PROJECT.width, height: sc.height || useEditorStore.getState().projectHeight || DEFAULT_PROJECT.height, rotation: sc.rotation || 0, opacity: sc.opacity ?? 100, volume: sc.volume ?? 100, muted: sc.muted || false, speed: sc.speed || 1, fadeIn: sc.fadeIn || 0, fadeOut: sc.fadeOut || 0, groupId: sc.groupId, sourceStart: sc.sourceStart || 0, sourceDuration: sc.sourceDuration, text: sc.text, fontFamily: sc.textStyle?.fontFamily, fontSize: sc.textStyle?.fontSize, fontColor: sc.textStyle?.fontColor, fontWeight: sc.textStyle?.fontWeight, textAlign: sc.textStyle?.textAlign, textBgColor: sc.textStyle?.backgroundColor, textBgOpacity: sc.textStyle?.backgroundOpacity, borderWidth: sc.textStyle?.borderWidth, borderColor: sc.textStyle?.borderColor, shadowX: sc.textStyle?.shadowX, shadowY: sc.textStyle?.shadowY, shadowColor: sc.textStyle?.shadowColor, lineHeight: sc.textStyle?.lineHeight });
+      const clip = createDefaultClip({ id: actualId, name: sc.text || (((src || localPath || "").match(/\.(mp4|webm|mov|avi|mkv)$/i) ? "video" : sc.type) + " clip"), type: (() => { const ext = (src || localPath || "").split(".").pop()?.toLowerCase(); if (sc.type === "video" && ext && ["png","jpg","jpeg","webp","bmp","gif"].includes(ext)) return "image"; // If localPath or src is a video file, force type to video
+              const videoExts = ["mp4","webm","mov","avi","mkv"];
+              if (ext && videoExts.includes(ext)) return "video";
+              return sc.type === "image" ? "image" : sc.type; })(), trackId, startFrame: sc.startFrame, durationFrames: sc.durationFrames, src, mediaId, localPath, x: sc.x || 0, y: sc.y || 0, width: sc.width || useEditorStore.getState().projectWidth || DEFAULT_PROJECT.width, height: sc.height || useEditorStore.getState().projectHeight || DEFAULT_PROJECT.height, rotation: sc.rotation || 0, opacity: sc.opacity ?? 100, volume: sc.volume ?? 100, muted: sc.muted || false, speed: sc.speed || 1, fadeIn: sc.fadeIn || 0, fadeOut: sc.fadeOut || 0, groupId: sc.groupId, sourceStart: sc.sourceStart || 0, sourceDuration: sc.sourceDuration, text: sc.text, fontFamily: sc.textStyle?.fontFamily, fontSize: sc.textStyle?.fontSize, fontColor: sc.textStyle?.fontColor, fontWeight: sc.textStyle?.fontWeight, textAlign: sc.textStyle?.textAlign, textBgColor: sc.textStyle?.backgroundColor, textBgOpacity: sc.textStyle?.backgroundOpacity, borderWidth: sc.textStyle?.borderWidth, borderColor: sc.textStyle?.borderColor, shadowX: sc.textStyle?.shadowX, shadowY: sc.textStyle?.shadowY, shadowColor: sc.textStyle?.shadowColor, lineHeight: sc.textStyle?.lineHeight });
       if (sc.keyframes) (clip as any).keyframes = sc.keyframes;
       if (sc.effects) (clip as any).scriptEffects = sc.effects;
       const ripple = useEditorStore.getState().rippleMode;
+      // === Auto cross-fade for chained scenes ===
+      if (sc.startFrame > 0 && clip.type !== 'audio' && clip.type !== 'text') {
+        const prevClips = useEditorStore.getState().clips
+          .filter(c => c.trackId === trackId && c.type !== 'audio' && c.type !== 'text')
+          .sort((a, b) => a.startFrame - b.startFrame);
+        const prevClip = prevClips.length > 0 ? prevClips[prevClips.length - 1] : null;
+        if (prevClip) {
+          const fps = useEditorStore.getState().fps || 30;
+          const overlapFrames = Math.min(Math.round(fps * 0.33), 10); // ~10 frames (0.33s) overlap
+          const prevEnd = prevClip.startFrame + prevClip.durationFrames;
+          // If clips are adjacent or nearly adjacent, create overlap
+          if (Math.abs(clip.startFrame - prevEnd) <= overlapFrames * 2) {
+            clip.startFrame = Math.max(0, prevEnd - overlapFrames);
+            (clip as any).transitionIn = { type: 'dissolve', duration: overlapFrames };
+            this.log.push("[Transition] Auto dissolve " + overlapFrames + "f between prev clip and " + actualId);
+          }
+        }
+      }
       store.dispatch(new AddClipCommand(clip, ripple));
       this.log.push("[Clip] " + actualId + " @ frame " + sc.startFrame + " (" + sc.type + ") src=" + (src || "none").substring(0, 60));
     }
@@ -538,7 +559,37 @@ export class ScriptEngine {
           break;
         }
         case "generateBGM": {
-          this.log.push("[Action] generateBGM placeholder (MusicGen pending)");
+          const bgmMood = (act as any).mood || "calm";
+          const bgmId = (act as any).bgmId || "";
+          const bgmDur = (act as any).duration || 30;
+          const bgmVol = (act as any).volume || 40;
+          const bgmOutId = (act as any).outputMediaId || "bgm_" + uid();
+          const bgmDucking = (act as any).duckingEnabled !== false;
+          const bgmDuckLevel = (act as any).duckingLevel || 25;
+          try {
+            const bgmResp = await fetch("http://localhost:3456/api/bgm/generate", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                bgmId: bgmId || undefined, mood: bgmMood, duration: bgmDur,
+                volume: bgmVol, fadeIn: 2, fadeOut: 3,
+                duckingEnabled: bgmDucking, duckingLevel: bgmDuckLevel,
+              }),
+            });
+            const bgmData = await bgmResp.json();
+            if (bgmData.success) {
+              useEditorStore.getState().addMediaItem({
+                id: bgmOutId, name: "BGM: " + (bgmData.preset || bgmMood),
+                type: "audio", url: bgmData.serverUrl, localPath: bgmData.localPath,
+                duration: bgmData.duration || bgmDur, size: 0,
+              });
+              this.mediaIdMap.set(bgmOutId, bgmOutId);
+              this.log.push("[Action] generateBGM -> " + bgmOutId + " (" + (bgmData.preset || bgmMood) + ", " + bgmData.duration + "s, " + (bgmData.sizeMB || "?") + "MB)");
+            } else {
+              this.errors.push("[Action] BGM failed: " + (bgmData.error || "unknown"));
+            }
+          } catch (bgmErr: any) {
+            this.errors.push("[Action] BGM error: " + bgmErr.message);
+          }
           break;
         }
         case "upscale": {

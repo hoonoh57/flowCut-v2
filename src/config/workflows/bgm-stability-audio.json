@@ -1,0 +1,35 @@
+{
+  "id": "bgm-stability-audio",
+  "name": "Stability Audio 2.5 (API)",
+  "description": "High-quality text-to-audio via Stability AI API (credits required)",
+  "engine": "comfyui",
+  "vramRequired": 0,
+  "estimatedTime": "15-60s",
+  "outputType": "audio",
+  "workflow": {
+    "4": {
+      "class_type": "StabilityTextToAudio",
+      "inputs": {
+        "model": "stable-audio-2.5",
+        "prompt": "{{tags}}",
+        "duration": "{{duration}}",
+        "seed": 0,
+        "control_after_generate": "randomize",
+        "cfg": 8
+      }
+    },
+    "6": {
+      "class_type": "SaveAudioMP3",
+      "inputs": {
+        "audio": ["4", 0],
+        "filename_prefix": "flowcut_bgm_sa",
+        "quality": "V0"
+      }
+    }
+  },
+  "params": {
+    "tags": { "type": "string", "required": true, "description": "Music style tags and description" },
+    "duration": { "type": "number", "default": 30, "description": "Duration in seconds (max ~190)" },
+    "cfg": { "type": "number", "default": 8, "description": "Guidance scale (1-15)" }
+  }
+}

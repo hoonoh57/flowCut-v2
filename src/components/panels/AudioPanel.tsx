@@ -68,6 +68,85 @@ export const AudioPanel: React.FC = () => {
   const [ttsStatus, setTtsStatus] = useState('');
   const [ttsHealth, setTtsHealth] = useState<boolean | null>(null);
 
+  /* ── BGM State ── */
+  const [bgmPresets, setBgmPresets] = useState<any[]>([]);
+  const [bgmSelected, setBgmSelected] = useState('ambient-calm');
+  const [bgmDuration, setBgmDuration] = useState(15);
+  const [bgmVolume, setBgmVolume] = useState(40);
+  const [bgmDucking, setBgmDucking] = useState(true);
+  const [bgmDuckLevel, setBgmDuckLevel] = useState(25);
+  const [bgmLoading, setBgmLoading] = useState(false);
+  const [bgmStatus, setBgmStatus] = useState('');
+
+  /* ── Load BGM library on mount ── */
+  useEffect(() => {
+    fetch('http://localhost:3456/api/bgm/library')
+      .then(r => r.json())
+      .then(d => { if (d.success) setBgmPresets(d.items); })
+      .catch(() => {});
+  }, []);
+
+  /* ── Auto-calc BGM duration from timeline ── */
+  useEffect(() => {
+    if (clips.length > 0) {
+      const maxFrame = clips.reduce((mx, c) => Math.max(mx, c.startFrame + c.durationFrames), 0);
+      const fps = 30;
+      const totalSec = Math.ceil(maxFrame / fps);
+      if (totalSec > 0) setBgmDuration(totalSec);
+    }
+  }, [clips]);
+
+  /* ── Generate BGM ── */
+  const handleGenerateBGM = async () => {
+    setBgmLoading(true);
+    setBgmStatus('BGM 생성 중...');
+    try {
+      const resp = await fetch('http://localhost:3456/api/bgm/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bgmId: bgmSelected, duration: bgmDuration, volume: bgmVolume,
+          fadeIn: 2, fadeOut: 3,
+          duckingEnabled: bgmDucking, duckingLevel: bgmDuckLevel,
+        }),
+      });
+      const data = await resp.json();
+      if (!data.success) { setBgmStatus('생성 실패: ' + (data.error || 'unknown')); setBgmLoading(false); return; }
+
+      const mediaId = 'bgm_' + Date.now();
+      const store = useEditorStore.getState();
+      store.addMediaItem({
+        id: mediaId, name: 'BGM: ' + (data.preset || bgmSelected),
+        type: 'audio', url: data.serverUrl, localPath: data.localPath,
+        duration: data.duration || bgmDuration, size: 0,
+      });
+
+      let bgmTrack = store.tracks.find(t => t.name?.includes('BGM') || (t.type === 'audio' && t.id === 'bgm1'));
+      if (!bgmTrack) {
+        const newTrack = {
+          id: 'bgm1', name: 'BGM', type: 'audio' as const,
+          order: 50, height: 50, color: '#a855f7',
+          locked: false, visible: true, muted: false, solo: false,
+        };
+        store.dispatch(new AddTrackCommand(newTrack));
+        bgmTrack = newTrack;
+      }
+
+      const clip = createDefaultClip({
+        id: 'bgm_clip_' + Date.now(), name: 'BGM: ' + (data.preset || bgmSelected),
+        type: 'audio', trackId: bgmTrack.id, startFrame: 0,
+        durationFrames: Math.round((data.duration || bgmDuration) * 30),
+        src: data.serverUrl, mediaId, localPath: data.localPath,
+        volume: bgmDucking ? bgmDuckLevel : bgmVolume, muted: false, speed: 1,
+      });
+      store.dispatch(new AddClipCommand(clip, false));
+
+      setBgmStatus('완료! ' + data.duration + '초 ' + (data.preset || '') + ' (' + (data.sizeMB || '?') + 'MB)');
+    } catch (err: any) {
+      setBgmStatus('서버 연결 실패: ' + err.message);
+    }
+    setBgmLoading(false);
+  };
+
   /* ── Check TTS server health on mount ── */
   useEffect(() => {
     fetch('http://localhost:3456/api/health')
@@ -263,6 +342,82 @@ export const AudioPanel: React.FC = () => {
       </div>
 
       {/* ════════════ Selected clip controls (기존 코드) ════════════ */}
+            {/* ════════════ BGM 배경음악 ════════════ */}
+      <div style={{
+        border: `1px solid ${theme.colors.accent.purple + '44'}`, borderRadius: 8, padding: 10,
+        background: theme.colors.bg.secondary,
+      }}>
+        <div style={{ fontSize: 12, color: '#a855f7', fontWeight: 700, marginBottom: 8 }}>
+          🎵 BGM 배경음악
+        </div>
+
+        {/* Preset selector */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+          <select value={bgmSelected} onChange={e => setBgmSelected(e.target.value)} style={{
+            flex: 1, padding: '5px 8px', borderRadius: 4, border: `1px solid ${theme.colors.border.primary}`,
+            background: theme.colors.bg.tertiary, color: theme.colors.text.primary, fontSize: 11,
+          }}>
+            {bgmPresets.map(p => (
+              <option key={p.id} value={p.id}>{p.name} ({p.genre}, {p.bpm}bpm)</option>
+            ))}
+            {bgmPresets.length === 0 && <option value="ambient-calm">서버 연결 대기...</option>}
+          </select>
+        </div>
+
+        {/* Duration + Volume */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: 9, color: theme.colors.text.muted }}>길이 {bgmDuration}초</span>
+            <input type="range" min={5} max={180} value={bgmDuration}
+              onChange={e => setBgmDuration(Number(e.target.value))}
+              style={{ width: '100%', height: 4 }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: 9, color: theme.colors.text.muted }}>볼륨 {bgmVolume}%</span>
+            <input type="range" min={5} max={100} value={bgmVolume}
+              onChange={e => setBgmVolume(Number(e.target.value))}
+              style={{ width: '100%', height: 4 }} />
+          </div>
+        </div>
+
+        {/* Ducking toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: theme.colors.text.secondary, cursor: 'pointer' }}>
+            <input type="checkbox" checked={bgmDucking} onChange={e => setBgmDucking(e.target.checked)} />
+            나레이션 중 자동 덕킹
+          </label>
+          {bgmDucking && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 9, color: theme.colors.text.muted }}>{bgmDuckLevel}%</span>
+              <input type="range" min={5} max={50} value={bgmDuckLevel}
+                onChange={e => setBgmDuckLevel(Number(e.target.value))}
+                style={{ width: 60, height: 3 }} />
+            </div>
+          )}
+        </div>
+
+        {/* Generate button */}
+        <button onClick={handleGenerateBGM} disabled={bgmLoading}
+          style={{
+            width: '100%', padding: '8px 0', borderRadius: 6, border: 'none', cursor: bgmLoading ? 'wait' : 'pointer',
+            background: bgmLoading ? theme.colors.bg.tertiary : '#a855f7',
+            color: '#fff', fontSize: 11, fontWeight: 600,
+          }}>
+          {bgmLoading ? '생성 중...' : '🎵 BGM 생성 → 타임라인에 추가'}
+        </button>
+
+        {bgmStatus && (
+          <div style={{
+            fontSize: 9, marginTop: 4, textAlign: 'center',
+            color: bgmStatus.includes('실패') || bgmStatus.includes('연결') ? theme.colors.accent.red
+              : bgmStatus.includes('완료') ? '#a855f7' : theme.colors.accent.amber,
+          }}>{bgmStatus}</div>
+        )}
+
+        <div style={{ fontSize: 9, color: theme.colors.text.muted, lineHeight: 1.4, marginTop: 4 }}>
+          💡 타임라인 길이에 맞춰 자동 조절 · 덕킹: TTS/나레이션 구간 자동 볼륨 감소
+        </div>
+      </div>
       {isMedia && selectedClip && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 10, borderRadius: 8, background: theme.colors.bg.elevated, border: `1px solid ${theme.colors.border.subtle}` }}>
           <div style={{ fontSize: 12, color: theme.colors.text.primary, fontWeight: 600 }}>{selectedClip.name}</div>
