@@ -472,9 +472,31 @@ app.post('/api/export', async (req, res) => {
       overlayCount++;
     }
 
-    // --- AUDIO MIX ---
+    // --- AUDIO MIX (with volume ducking) ---
     let audioLabel = '';
     const audioInputs = [];
+
+    // Detect narration intervals for BGM ducking
+    const narrationIntervals = [];
+    if (includeAudio && audioClips.length > 0) {
+      for (const nc of audioClips) {
+        // Narration clips: trackId contains 'narr' or clip name contains 'narr' or 'tts'
+        const ncTrack = (tracks || []).find(t => t.id === nc.trackId);
+        const ncTrackName = (ncTrack && ncTrack.name) ? ncTrack.name.toLowerCase() : '';
+        const isNarration = ncTrackName.includes('narr') || ncTrackName.includes('나레이션') || ncTrackName.includes('tts')
+          || (nc.trackId && nc.trackId.toLowerCase().includes('narr'))
+          || (nc.text && (nc.text.toLowerCase().includes('narr') || nc.text.toLowerCase().includes('tts')));
+        if (isNarration) {
+          const nStart = (nc.startFrame / fps);
+          const nEnd = nStart + (nc.durationFrames / fps);
+          narrationIntervals.push({ start: nStart, end: nEnd });
+        }
+      }
+      if (narrationIntervals.length > 0) {
+        console.log('[EXPORT] Volume ducking: ' + narrationIntervals.length + ' narration intervals detected');
+        narrationIntervals.forEach(iv => console.log('  Narration: ' + iv.start.toFixed(2) + 's - ' + iv.end.toFixed(2) + 's'));
+      }
+    }
 
     if (includeAudio && audioClips.length > 0) {
       for (let i = 0; i < audioClips.length; i++) {
@@ -489,6 +511,28 @@ app.post('/api/export', async (req, res) => {
         const envFilter = clip.volumeEnvelope ? envelopeToVolumeFilter(clip.volumeEnvelope, parseFloat(durSec)) : null;
         if (envFilter) afParts.push(envFilter);
         else if (clip.volume !== undefined && clip.volume !== 100) afParts.push('volume=' + (clip.volume/100).toFixed(2));
+        // Volume ducking: if this is a BGM clip and narration exists, reduce volume during narration
+        const bgmTrack = (tracks || []).find(t => t.id === clip.trackId);
+        const bgmTrackName = (bgmTrack && bgmTrack.name) ? bgmTrack.name.toLowerCase() : '';
+        const isBGM = bgmTrackName.includes('bgm') || bgmTrackName.includes('music') || bgmTrackName.includes('배경')
+          || (clip.trackId && (clip.trackId.toLowerCase().includes('bgm') || clip.trackId.toLowerCase().includes('music')))
+          || (clip.text && (clip.text.toLowerCase().includes('bgm') || clip.text.toLowerCase().includes('music')));
+        if (isBGM && narrationIntervals.length > 0) {
+          const clipStartSec = clip.startFrame / fps;
+          const duckLevel = 0.15; // BGM volume during narration (15%)
+          const duckFade = 0.3;   // fade duration in seconds
+          for (const iv of narrationIntervals) {
+            // Relative times within this audio clip
+            const relStart = Math.max(0, iv.start - clipStartSec);
+            const relEnd = iv.end - clipStartSec;
+            if (relEnd > 0 && relStart < parseFloat(durSec)) {
+              const safeStart = Math.max(0, relStart - duckFade).toFixed(3);
+              const safeEnd = Math.min(parseFloat(durSec), relEnd + duckFade).toFixed(3);
+              afParts.push("volume=enable='between(t," + safeStart + "," + safeEnd + ")':volume=" + duckLevel);
+              console.log('[EXPORT] Duck BGM clip ' + i + ': ' + safeStart + 's-' + safeEnd + 's -> ' + (duckLevel*100) + '%');
+            }
+          }
+        }
         if (clip.speed && clip.speed !== 1) afParts.push('atempo=' + Math.max(0.5, Math.min(2, clip.speed)));
         if (clip.fadeIn > 0) afParts.push('afade=t=in:st=0:d=' + (clip.fadeIn/fps).toFixed(2));
         if (clip.fadeOut > 0) {

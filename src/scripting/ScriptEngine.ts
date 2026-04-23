@@ -664,6 +664,34 @@ export class ScriptEngine {
               });
               this.mediaIdMap.set(bgmOutId, bgmOutId);
               this.log.push("[Action] generateBGM -> " + bgmOutId + " (" + (bgmData.preset || bgmMood) + ", " + bgmData.duration + "s, " + (bgmData.sizeMB || "?") + "MB)");
+
+              // Auto-place BGM clip on a BGM track
+              const store = useEditorStore.getState();
+              const fps = store.project?.fps || 30;
+              const bgmDurFrames = Math.ceil((bgmData.duration || bgmDur) * fps);
+              
+              // Find or create BGM track
+              let bgmTrackId = store.tracks.find((t: any) => 
+                t.name?.toLowerCase().includes("bgm") || t.name?.toLowerCase().includes("music")
+              )?.id;
+              if (!bgmTrackId) {
+                bgmTrackId = "bgm_track";
+                store.dispatch(new AddTrackCommand({
+                  id: bgmTrackId, name: "BGM", type: "audio",
+                  order: 300, height: 40, color: "#4a9eff",
+                } as any));
+                this.log.push("[B3-BGM] Created BGM track");
+              }
+
+              // Place BGM clip at frame 0 spanning full duration
+              const bgmClip = createDefaultClip({
+                id: uid(), name: "BGM: " + (bgmData.preset || bgmMood),
+                type: "audio" as any, trackId: bgmTrackId,
+                startFrame: 0, durationFrames: bgmDurFrames,
+                mediaId: bgmOutId, volume: bgmVol,
+              });
+              store.dispatch(new AddClipCommand(bgmClip, false));
+              this.log.push("[B3-BGM] Placed BGM clip @ frame 0 (" + (bgmData.duration || bgmDur) + "s, vol=" + bgmVol + "%)");
             } else {
               this.errors.push("[Action] BGM failed: " + (bgmData.error || "unknown"));
             }
