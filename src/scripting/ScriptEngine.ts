@@ -265,11 +265,20 @@ export class ScriptEngine {
                   }
                 }
               try {
+                // === B1-fix: When chaining, use continuation prompt instead of scene prompt ===
+                const isChaining = (media as any)._chainFrom && chainStartImage !== data.localPath;
+                const basePrompt = media.aiPrompt || media.src.replace("ai://", "");
+                const i2vPrompt = isChaining
+                  ? "seamless continuation of the previous scene, " + basePrompt.substring(0, 120) + ", smooth camera motion, consistent lighting, cinematic, same color palette, continuous movement"
+                  : basePrompt + ", gentle camera motion, cinematic, smooth animation";
+                if (isChaining) {
+                  this.log.push("[B1-Chain] Continuation prompt: " + i2vPrompt.substring(0, 100));
+                }
                 const i2vResp = await fetch("http://localhost:3456/api/comfyui/generate-video", {
                   method: "POST", headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     imageLocalPath: chainStartImage,
-                    positive: (media.aiPrompt || media.src.replace("ai://", "")) + ", gentle camera motion, cinematic, smooth animation",
+                    positive: i2vPrompt,
                     width: 480, height: 832, length: 81, steps: 30
                   })
                 });

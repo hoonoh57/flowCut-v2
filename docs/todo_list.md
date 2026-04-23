@@ -136,3 +136,15 @@ ROADMAP.md: Phase 3.6까지 기록 → A1(IPAdapter), A2(enhance), A3(TTS 강화
 SCRIPT_API.md: 52% 기록 → 실제 ScriptEngine에는 27+개 액션 구현됨, 문서 갱신 필요
 TypeScript 빌드 에러: ExportPanel.tsx, ClipInspector.tsx 등 기존 타입 에러 존재 (A1/A2와 무관)
 구현내용및보완계획.txt: 루트에 한글 파일명 존재 → docs/IMPLEMENTATION_NOTES.md로 이동 또는 삭제 권장
+
+==> 수정 추가(2026/04/23 13:48)
+오늘 세션 성과:
+
+커밋	항목	변경
+eec36df	A1 IPAdapter	3 files, +245 -134
+727921a	A2 업스케일+보간	2 files, +236 -15
+e226973	A3 TTS UI + Mute/Solo	5 files, +472 -48
+eea8801	B1 무한 체이닝	3 files, +96 -4
+합계	4개 핵심 기능	13 files, +1049 -201
+todo_list.md 기준 완료 상태가 크게 바뀌었습니다. 기존에 가장 급했던 A1, A2가 해소되었고, TTS는 백엔드뿐 아니라 UI까지 완성되었으며, 5초 제한도 체이닝으로 해제되었습니다. FlowCut이 이제 "프롬프트 → 연속 영상 + 나레이션 + 일관된 캐릭터"를 한 번에 로컬에서 만들 수 있는 구조를 갖추게 된 셈입니다.
+
