@@ -321,86 +321,7 @@ export class ScriptEngine {
                       this.mediaIdMap.set(media.id, media.id + "_enhanced");
                       this.log.push("[A2] Enhanced: " + enhData.localPath + " (30fps, " + (enhData.upscaleScale || 2) + "x, " + (enhData.sizeMB || "?") + "MB)");
 
-                      // === A3: Auto TTS narration sync ===
-                      if ((media as any).narration) {
-                        try {
-                          const narrText = (media as any).narration;
-                          const narrVoice = (media as any).narrationVoice || (media as any).narrationLang || "ko";
-                          const narrOutId = media.id + "_tts";
-                          const sceneDurSec = (enhData.duration || ((i2vData?.frames || 81) / (i2vData?.fps || 16)));
-                          this.log.push("[A3-TTS] Generating narration for " + media.id + ": " + narrText.substring(0, 50));
-
-                          const ttsResp = await fetch("http://localhost:3456/api/tts/generate", {
-                            method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              text: narrText,
-                              language: narrVoice,
-                              voice: narrVoice,
-                              targetDuration: sceneDurSec,
-                            }),
-                          });
-                          const ttsData = await ttsResp.json();
-                          if (ttsData.success) {
-                            const ttsDur = ttsData.duration || 5;
-                            useEditorStore.getState().addMediaItem({
-                              id: narrOutId, name: "Narration: " + narrText.substring(0, 30),
-                              type: "audio", url: ttsData.serverUrl, localPath: ttsData.localPath,
-                              duration: ttsDur, size: 0,
-                            });
-                            this.mediaIdMap.set(narrOutId, narrOutId);
-
-                            // Find the scene clip and sync timing
-                            const fps = useEditorStore.getState().fps || 30;
-                            const scenClips = useEditorStore.getState().clips.filter(
-                              (c: any) => c.mediaId === media.id || c.mediaId === (media.id + "_enhanced") || c.mediaId === (media.id + "_video")
-                            );
-                            const sceneClip = scenClips.length > 0 ? scenClips[scenClips.length - 1] : null;
-                            const sceneStartFrame = sceneClip ? sceneClip.startFrame : 0;
-                            const ttsFrames = Math.ceil(ttsDur * fps);
-
-                            // If TTS is longer than scene clip, extend the scene clip
-                            if (sceneClip && ttsFrames > sceneClip.durationFrames) {
-                              const extended = ttsFrames + Math.round(fps * 0.5); // +0.5s padding
-                              this.log.push("[A3-TTS] Extending scene clip from " + sceneClip.durationFrames + "f to " + extended + "f to fit narration");
-                              useEditorStore.getState().setClips(
-                                useEditorStore.getState().clips.map((c: any) =>
-                                  c.id === sceneClip.id ? { ...c, durationFrames: extended } : c
-                                )
-                              );
-                            }
-
-                            // Auto-create audio track if needed
-                            const audioTracks = useEditorStore.getState().tracks.filter((t: any) => t.type === "audio");
-                            let narrTrackId = audioTracks.find((t: any) => t.name?.includes("Narration") || t.name?.includes("나레이션"))?.id;
-                            if (!narrTrackId) {
-                              narrTrackId = "narr_track";
-                              useEditorStore.getState().dispatch(new AddTrackCommand({
-                                id: narrTrackId, name: "나레이션", type: "audio",
-                                order: 200, height: 60, color: "#f97316",
-                                locked: false, visible: true, muted: false, solo: false,
-                              }));
-                              this.log.push("[A3-TTS] Created narration track");
-                            }
-
-                            // Place TTS clip aligned with scene
-                            const ttsClip = createDefaultClip({
-                              id: uid(), name: "TTS: " + narrText.substring(0, 20),
-                              type: "audio" as any, trackId: narrTrackId,
-                              startFrame: sceneStartFrame,
-                              durationFrames: ttsFrames,
-                              mediaId: narrOutId,
-                              volume: 100,
-                            });
-                            useEditorStore.getState().dispatch(new AddClipCommand(ttsClip, false));
-                            this.log.push("[A3-TTS] Placed narration clip @ frame " + sceneStartFrame + " (" + ttsDur.toFixed(1) + "s)");
-                          } else {
-                            this.errors.push("[A3-TTS] Failed: " + (ttsData.error || "unknown"));
-                          }
-                        } catch (narrErr: any) {
-                          this.errors.push("[A3-TTS] Error: " + narrErr.message);
-                        }
-                      }
-                    } else {
+                       else {
                       this.log.push("[A2] Enhance failed: " + (enhData.error || "unknown") + " — using original i2v");
                     }
                   } catch (enhErr: any) {
@@ -415,7 +336,87 @@ export class ScriptEngine {
               }
             }
 
-                        // === A1: Auto-save first image as face reference ===
+                        
+            // === A3: Auto TTS narration sync (runs regardless of i2v/enhance result) ===
+            if ((media as any).narration) {
+              try {
+                const narrText = (media as any).narration;
+                const narrVoice = (media as any).narrationVoice || (media as any).narrationLang || "ko";
+                const narrOutId = media.id + "_tts";
+                
+                // Calculate scene duration from clip or default 5s
+                const currentClips = useEditorStore.getState().clips;
+                const sceneClipForTTS = currentClips.find(
+                  (c: any) => c.mediaId === media.id || c.mediaId === (media.id + "_enhanced") || c.mediaId === (media.id + "_video")
+                );
+                const fps = useEditorStore.getState().project?.fps || 30;
+                const sceneDurSec = sceneClipForTTS ? (sceneClipForTTS.durationFrames / fps) : 5;
+                
+                this.log.push("[A3-TTS] Generating narration for " + media.id + ": " + narrText.substring(0, 50));
+
+                const ttsResp = await fetch("http://localhost:3456/api/tts/generate", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    text: narrText,
+                    language: narrVoice,
+                    voice: narrVoice,
+                    targetDuration: sceneDurSec,
+                  }),
+                });
+                const ttsData = await ttsResp.json();
+                if (ttsData.success) {
+                  const ttsDur = ttsData.duration || 5;
+                  useEditorStore.getState().addMediaItem({
+                    id: narrOutId, name: "Narration: " + narrText.substring(0, 30),
+                    type: "audio", url: ttsData.serverUrl, localPath: ttsData.localPath,
+                    duration: ttsDur, size: 0,
+                  });
+                  this.mediaIdMap.set(narrOutId, narrOutId);
+
+                  const ttsFrames = Math.ceil(ttsDur * fps);
+                  const sceneStartFrame = sceneClipForTTS ? sceneClipForTTS.startFrame : 0;
+
+                  // If TTS is longer than scene clip, extend the scene clip
+                  if (sceneClipForTTS && ttsFrames > sceneClipForTTS.durationFrames) {
+                    const extended = ttsFrames + Math.round(fps * 0.5);
+                    this.log.push("[A3-TTS] Extending scene clip from " + sceneClipForTTS.durationFrames + "f to " + extended + "f to fit narration");
+                    useEditorStore.getState().setClips(
+                      useEditorStore.getState().clips.map((c: any) =>
+                        c.id === sceneClipForTTS.id ? { ...c, durationFrames: extended } : c
+                      )
+                    );
+                  }
+
+                  // Auto-create narration track if needed
+                  const audioTracks = useEditorStore.getState().tracks.filter((t: any) => t.type === "audio");
+                  let narrTrackId = audioTracks.find((t: any) => t.name?.includes("Narration") || t.name?.includes("나레이션"))?.id;
+                  if (!narrTrackId) {
+                    narrTrackId = "narr_track";
+                    useEditorStore.getState().dispatch(new AddTrackCommand({
+                      id: narrTrackId, name: "나레이션", type: "audio",
+                      order: 200, height: 60, color: "#f97316",
+                      locked: false, visible: true, muted: false, solo: false,
+                    }));
+                    this.log.push("[A3-TTS] Created narration track");
+                  }
+
+                  // Place TTS clip aligned with scene
+                  const ttsClip = createDefaultClip({
+                    id: uid(), name: "TTS: " + narrText.substring(0, 20),
+                    type: "audio" as any, trackId: narrTrackId,
+                    startFrame: sceneStartFrame, durationFrames: ttsFrames,
+                    mediaId: narrOutId,
+                  });
+                  useEditorStore.getState().dispatch(new AddClipCommand(ttsClip, false));
+                  this.log.push("[A3-TTS] Placed narration clip @ frame " + sceneStartFrame + " (" + ttsDur.toFixed(1) + "s)");
+                } else {
+                  this.errors.push("[A3-TTS] Failed: " + (ttsData.error || "unknown"));
+                }
+              } catch (narrErr: any) {
+                this.errors.push("[A3-TTS] Error: " + narrErr.message);
+              }
+            }
+// === A1: Auto-save first image as face reference ===
             if (data.localPath && (media as any)._seeds) {
               try {
                 const regMod = await import('../registry/CharacterRegistry');
