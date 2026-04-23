@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import { createTrackSlice, type TrackSlice } from './slices/trackSlice';
 import { createClipSlice, type ClipSlice } from './slices/clipSlice';
 import { createPlaybackSlice, type PlaybackSlice } from './slices/playbackSlice';
@@ -20,3 +20,6 @@ export const useEditorStore = create<EditorStore>()((...a) => ({
   ...createExportSlice(...a),
   ...createUISlice(...a),
 }));
+
+// Debug: expose store globally
+if (typeof window !== 'undefined') (window as any).__editorStore = useEditorStore;

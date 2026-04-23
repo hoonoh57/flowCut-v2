@@ -20,6 +20,9 @@ export interface FlowScriptMedia {
   duration?: number;
   aiPrompt?: string;
   aiWorkflow?: string;
+  narration?: string;          // Auto-generate TTS and sync with scene clip
+  narrationVoice?: string;     // Voice preset (ko, en, ja, zh, or Edge TTS voice name)
+  narrationLang?: string;      // Language code
 }
 
 export interface FlowScriptKeyframe {
