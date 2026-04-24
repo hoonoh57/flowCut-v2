@@ -170,6 +170,141 @@ app.get('/api/health', (req, res) => { res.json({ ok: true, ffmpeg: FFMPEG, outp
 // =========================================================================
 // EXPORT ENDPOINT (unchanged — just removed node-fetch references)
 // =========================================================================
+
+// ========== VIDEO EXTEND API ==========
+app.post('/api/video/extend', async (req, res) => {
+  const { videoPath, targetDurationSec, strategy, shortfallSec } = req.body;
+  console.log('[VideoExtend] START');
+  console.log('[VideoExtend] Input:', videoPath);
+  console.log('[VideoExtend] Target:', targetDurationSec + 's, Strategy:', strategy);
+  console.log('[VideoExtend] Shortfall:', shortfallSec + 's');
+
+  if (!videoPath || !fs.existsSync(videoPath)) {
+    return res.json({ success: false, error: 'Video not found: ' + videoPath });
+  }
+
+  const outputPath = path.join(MEDIA_DIR, 'extended_' + Date.now() + '.mp4');
+
+  try {
+    // Get original video duration
+    const probeResult = require('child_process').execSync(
+      'E:/ffmpeg/bin/ffprobe.exe -v error -show_entries format=duration -of csv=p=0 "' + videoPath + '"',
+      { encoding: 'utf8', timeout: 10000 }
+    ).trim();
+    const origDuration = parseFloat(probeResult);
+    const extensionRatio = targetDurationSec / origDuration;
+
+    console.log('[VideoExtend] Original:', origDuration.toFixed(2) + 's, Ratio:', extensionRatio.toFixed(2) + 'x');
+
+    // Auto-select strategy if 'auto'
+    let selectedStrategy = strategy || 'auto';
+    if (selectedStrategy === 'auto') {
+      if (shortfallSec < 1) selectedStrategy = 'slowmotion';
+      else if (extensionRatio < 1.15) selectedStrategy = 'slowmotion';
+      else if (extensionRatio < 1.5) selectedStrategy = 'hybrid';
+      else selectedStrategy = 'hybrid'; // AI disabled by default
+    }
+    console.log('[VideoExtend] Selected strategy:', selectedStrategy);
+
+    if (selectedStrategy === 'slowmotion') {
+      // Pure slow motion
+      const newSpeed = origDuration / targetDurationSec;
+      console.log('[VideoExtend] Slow motion @ ' + newSpeed.toFixed(3) + 'x speed');
+      require('child_process').execSync(
+        FFMPEG + ' -y -i "' + videoPath + '" -filter:v "setpts=' + (1/newSpeed).toFixed(4) + '*PTS" -r 30 -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p "' + outputPath + '"',
+        { timeout: 60000 }
+      );
+
+    } else if (selectedStrategy === 'freeze') {
+      // Last frame freeze
+      const lastFramePath = path.join(MEDIA_DIR, 'extend_lastframe_' + Date.now() + '.png');
+      const freezePath = path.join(MEDIA_DIR, 'extend_freeze_' + Date.now() + '.mp4');
+      const concatFile = path.join(MEDIA_DIR, 'extend_concat_' + Date.now() + '.txt');
+
+      // Extract last frame
+      require('child_process').execSync(
+        FFMPEG + ' -y -sseof -0.1 -i "' + videoPath + '" -vframes 1 "' + lastFramePath + '"',
+        { timeout: 15000 }
+      );
+      // Create freeze segment
+      require('child_process').execSync(
+        FFMPEG + ' -y -loop 1 -i "' + lastFramePath + '" -c:v libx264 -t ' + shortfallSec.toFixed(3) + ' -pix_fmt yuv420p -r 30 "' + freezePath + '"',
+        { timeout: 15000 }
+      );
+      // Concat
+      fs.writeFileSync(concatFile, "file '" + videoPath.replace(/\\/g, '/') + "'\nfile '" + freezePath.replace(/\\/g, '/') + "'");
+      require('child_process').execSync(
+        FFMPEG + ' -y -f concat -safe 0 -i "' + concatFile + '" -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p "' + outputPath + '"',
+        { timeout: 30000 }
+      );
+      // Cleanup
+      try { fs.unlinkSync(lastFramePath); fs.unlinkSync(freezePath); fs.unlinkSync(concatFile); } catch(e) {}
+
+    } else if (selectedStrategy === 'hybrid') {
+      // Hybrid: 70% slow motion + 30% freeze
+      const slowDurSec = shortfallSec * 0.7;
+      const freezeDurSec = shortfallSec * 0.3;
+      const slowTargetSec = origDuration + slowDurSec;
+      const newSpeed = origDuration / slowTargetSec;
+
+      console.log('[VideoExtend] Hybrid: slow ' + slowDurSec.toFixed(2) + 's + freeze ' + freezeDurSec.toFixed(2) + 's');
+
+      const slowedPath = path.join(MEDIA_DIR, 'extend_slowed_' + Date.now() + '.mp4');
+      const lastFramePath = path.join(MEDIA_DIR, 'extend_lastframe_' + Date.now() + '.png');
+      const freezePath = path.join(MEDIA_DIR, 'extend_freeze_' + Date.now() + '.mp4');
+      const concatFile = path.join(MEDIA_DIR, 'extend_concat_' + Date.now() + '.txt');
+
+      // Slow motion
+      require('child_process').execSync(
+        FFMPEG + ' -y -i "' + videoPath + '" -filter:v "setpts=' + (1/newSpeed).toFixed(4) + '*PTS" -r 30 -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p "' + slowedPath + '"',
+        { timeout: 60000 }
+      );
+      // Extract last frame from slowed
+      require('child_process').execSync(
+        FFMPEG + ' -y -sseof -0.1 -i "' + slowedPath + '" -vframes 1 "' + lastFramePath + '"',
+        { timeout: 15000 }
+      );
+      // Freeze
+      require('child_process').execSync(
+        FFMPEG + ' -y -loop 1 -i "' + lastFramePath + '" -c:v libx264 -t ' + freezeDurSec.toFixed(3) + ' -pix_fmt yuv420p -r 30 "' + freezePath + '"',
+        { timeout: 15000 }
+      );
+      // Concat
+      fs.writeFileSync(concatFile, "file '" + slowedPath.replace(/\\/g, '/') + "'\nfile '" + freezePath.replace(/\\/g, '/') + "'");
+      require('child_process').execSync(
+        FFMPEG + ' -y -f concat -safe 0 -i "' + concatFile + '" -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p "' + outputPath + '"',
+        { timeout: 30000 }
+      );
+      // Cleanup
+      try { fs.unlinkSync(slowedPath); fs.unlinkSync(lastFramePath); fs.unlinkSync(freezePath); fs.unlinkSync(concatFile); } catch(e) {}
+
+    } else if (selectedStrategy === 'loop') {
+      const loopCount = Math.ceil(targetDurationSec / origDuration) - 1;
+      require('child_process').execSync(
+        FFMPEG + ' -y -stream_loop ' + loopCount + ' -i "' + videoPath + '" -t ' + targetDurationSec.toFixed(3) + ' -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p "' + outputPath + '"',
+        { timeout: 30000 }
+      );
+    }
+
+    const stats = fs.statSync(outputPath);
+    const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+    console.log('[VideoExtend] Output:', outputPath, '(' + sizeMB + 'MB)');
+    console.log('[VideoExtend] Strategy:', selectedStrategy, '| ' + origDuration.toFixed(1) + 's -> ' + targetDurationSec.toFixed(1) + 's');
+
+    res.json({
+      success: true,
+      localPath: outputPath,
+      serverUrl: 'http://localhost:3456/media/' + path.basename(outputPath),
+      strategy: selectedStrategy,
+      originalDuration: origDuration,
+      newDuration: targetDurationSec,
+      sizeMB: sizeMB,
+    });
+  } catch (err) {
+    console.log('[VideoExtend] ERROR:', err.message);
+    res.json({ success: false, error: err.message });
+  }
+});
 app.post('/api/export', async (req, res) => {
   const {
     inputFiles, projectWidth, projectHeight, fps, tracks,
