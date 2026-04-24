@@ -171,6 +171,99 @@ app.get('/api/health', (req, res) => { res.json({ ok: true, ffmpeg: FFMPEG, outp
 // EXPORT ENDPOINT (unchanged — just removed node-fetch references)
 // =========================================================================
 
+
+// ========== SUBTITLE (ASS) GENERATION API ==========
+app.post('/api/subtitle/generate', async (req, res) => {
+  const { segments, projectWidth, projectHeight, fps, style } = req.body;
+  // segments: [{ text, startFrame, endFrame, words: [{word, startMs, endMs}] }]
+  console.log('[Subtitle] Generating ASS subtitle');
+  console.log('[Subtitle] Segments:', (segments || []).length, 'Resolution:', projectWidth + 'x' + projectHeight);
+
+  if (!segments || segments.length === 0) {
+    return res.json({ success: false, error: 'No segments provided' });
+  }
+
+  const w = projectWidth || 1920;
+  const h = projectHeight || 1080;
+  const fontName = 'Noto Sans KR';
+  const fontSize = style?.fontSize || Math.round(h * 0.042); // ~45px at 1080p
+  const primaryColor = style?.primaryColor || '&H00FFFFFF'; // white
+  const highlightColor = style?.highlightColor || '&H0000DDFF'; // yellow-orange
+  const outlineColor = style?.outlineColor || '&H00000000'; // black
+  const bgColor = style?.bgColor || '&H80000000'; // semi-transparent black
+  const fontPath = path.join(MEDIA_DIR, 'NotoSansKR-Bold.ttf');
+
+  // ASS Header
+  let ass = '[Script Info]\n';
+  ass += 'Title: FlowCut Auto Subtitle\n';
+  ass += 'ScriptType: v4.00+\n';
+  ass += 'PlayResX: ' + w + '\n';
+  ass += 'PlayResY: ' + h + '\n';
+  ass += 'WrapStyle: 0\n';
+  ass += 'ScaledBorderAndShadow: yes\n\n';
+
+  // Styles
+  ass += '[V4+ Styles]\n';
+  ass += 'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n';
+  // Main style: center-bottom with outline + shadow
+  ass += 'Style: Default,' + fontName + ',' + fontSize + ',' + primaryColor + ',' + highlightColor + ',' + outlineColor + ',' + bgColor + ',-1,0,0,0,100,100,1,0,1,3,1,2,30,30,60,1\n';
+  // Highlight style (for karaoke active word)
+  ass += 'Style: Highlight,' + fontName + ',' + Math.round(fontSize * 1.05) + ',' + highlightColor + ',' + primaryColor + ',' + outlineColor + ',' + bgColor + ',-1,0,0,0,100,100,1,0,1,3,1,2,30,30,60,1\n\n';
+
+  // Events
+  ass += '[Events]\n';
+  ass += 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
+
+  const fpsVal = fps || 30;
+
+  for (const seg of segments) {
+    const startSec = (seg.startFrame || 0) / fpsVal;
+    const endSec = (seg.endFrame || seg.startFrame + 150) / fpsVal;
+    const startTime = formatASSTime(startSec);
+    const endTime = formatASSTime(endSec);
+
+    if (seg.words && seg.words.length > 0) {
+      // Karaoke mode: word-by-word highlight using \k tags
+      let karaokeText = '';
+      for (let i = 0; i < seg.words.length; i++) {
+        const word = seg.words[i];
+        // \k duration is in centiseconds (1/100s)
+        const wordDurCs = Math.round(((word.endMs || 0) - (word.startMs || 0)) / 10);
+        const durCs = Math.max(1, wordDurCs);
+        // \kf = smooth fill, \k = instant fill
+        karaokeText += '{\\kf' + durCs + '}' + word.word;
+        if (i < seg.words.length - 1) karaokeText += ' ';
+      }
+      ass += 'Dialogue: 0,' + startTime + ',' + endTime + ',Default,,0,0,0,,' + karaokeText + '\n';
+    } else {
+      // Simple mode: full sentence with fade
+      const fadeText = '{\\fad(200,200)}' + seg.text;
+      ass += 'Dialogue: 0,' + startTime + ',' + endTime + ',Default,,0,0,0,,' + fadeText + '\n';
+    }
+  }
+
+  // Save ASS file
+  const assFileName = 'subtitle_' + Date.now() + '.ass';
+  const assPath = path.join(MEDIA_DIR, assFileName);
+  fs.writeFileSync(assPath, ass, 'utf8');
+  console.log('[Subtitle] ASS file saved:', assPath);
+  console.log('[Subtitle] Segments:', segments.length, 'Font:', fontName, fontSize + 'px');
+
+  res.json({
+    success: true,
+    assPath: assPath,
+    assUrl: 'http://localhost:3456/media/' + assFileName,
+    fontPath: fontPath,
+    segments: segments.length,
+  });
+});
+
+function formatASSTime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return h + ':' + String(m).padStart(2, '0') + ':' + s.toFixed(2).padStart(5, '0');
+}
 // ========== VIDEO EXTEND API ==========
 app.post('/api/video/extend', async (req, res) => {
   const { videoPath, targetDurationSec, strategy, shortfallSec } = req.body;
@@ -699,6 +792,24 @@ app.post('/api/export', async (req, res) => {
       args.push('-map', lastVideo);
       if (audioLabel) args.push('-map', '[' + audioLabel + ']');
       else args.push('-an');
+    }
+
+        // --- SUBTITLE BURN-IN ---
+    const assFile = req.body.assPath;
+    const subFontDir = req.body.fontDir || path.join(MEDIA_DIR);
+    if (assFile && fs.existsSync(assFile)) {
+      // Add ASS subtitle filter to the last video stream
+      const assPathEscaped = assFile.replace(/\\/g, '/').replace(/:/g, '\\:');
+      const fontDirEscaped = subFontDir.replace(/\\/g, '/').replace(/:/g, '\\:');
+      const subFilter = "ass='" + assPathEscaped + "':fontsdir='" + fontDirEscaped + "'";
+      
+      // Insert subtitle filter into the filter chain
+      if (lastVideo) {
+        const subLabel = 'subtitled';
+        filterParts.push(lastVideo + subFilter + '[' + subLabel + ']');
+        lastVideo = '[' + subLabel + ']';
+        console.log('[EXPORT] Subtitle burn-in: ' + assFile);
+      }
     }
 
     args.push('-t', totalDurSec);

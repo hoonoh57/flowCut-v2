@@ -182,6 +182,7 @@ export class ScriptEngine {
     try {
       this.log.push("[DEBUG] script keys: " + Object.keys(script).join(", "));
       (this as any)._scriptData = script; // Store script data for TTS startFrame calculation
+      (this as any)._subtitleSegments = []; // Collect subtitle segments from TTS
       this.log.push("[DEBUG] media: " + (script.media ? "array(" + (Array.isArray(script.media) ? script.media.length : typeof script.media) + ")" : "undefined"));
       this.log.push("[DEBUG] tracks: " + (script.tracks ? "array(" + (Array.isArray(script.tracks) ? script.tracks.length : typeof script.tracks) + ")" : "undefined"));
       this.log.push("[DEBUG] clips: " + (script.clips ? "array(" + (Array.isArray(script.clips) ? script.clips.length : typeof script.clips) + ")" : "undefined"));
@@ -195,7 +196,33 @@ export class ScriptEngine {
       const _fixed = _clips.map(c => c.mediaId && c.mediaId.endsWith("_video") ? { ...c, type: "video" } : c);
       useEditorStore.getState().setClips(_fixed);
       this.log.push("[DEBUG] i2v clips reclassified to video"); } catch(e: any) { this.errors.push("[createClips] " + e.message + " | stack: " + (e.stack || "").split("\n")[1]); }
-      try { if (script.actions && Array.isArray(script.actions)) { this.log.push("[DEBUG] executing " + script.actions.length + " actions..."); await this.executeActions(script.actions); this.log.push("[DEBUG] executeActions OK"); } } catch(e: any) { this.errors.push("[executeActions] " + e.message + " | stack: " + (e.stack || "").split("\n")[1]); }
+      try { if (script.actions && Array.isArray(script.actions)) { this.log.push("[DEBUG] executing " + script.actions.length + " actions..."); await this.executeActions(script.actions); this.log.push("[DEBUG] executeActions OK");
+
+      // === Auto Subtitle Generation ===
+      const subtitleSegments = (this as any)._subtitleSegments || [];
+      if (subtitleSegments.length > 0) {
+        try {
+          const subResp = await fetch("http://localhost:3456/api/subtitle/generate", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              segments: subtitleSegments,
+              projectWidth: useEditorStore.getState().project?.width || 1920,
+              projectHeight: useEditorStore.getState().project?.height || 1080,
+              fps: useEditorStore.getState().project?.fps || 30,
+            }),
+          });
+          const subData = await subResp.json();
+          if (subData.success) {
+            (this as any)._assPath = subData.assPath;
+            (this as any)._fontDir = subData.fontPath ? subData.fontPath.replace(/[^/\\]*$/, "") : "";
+            this.log.push("[Subtitle] ASS generated: " + subData.assPath + " (" + subData.segments + " segments)");
+          } else {
+            this.errors.push("[Subtitle] Failed: " + (subData.error || "unknown"));
+          }
+        } catch (subErr: any) {
+          this.errors.push("[Subtitle] Error: " + subErr.message);
+        }
+      } } } catch(e: any) { this.errors.push("[executeActions] " + e.message + " | stack: " + (e.stack || "").split("\n")[1]); }
       this.log.push("[ScriptEngine] Complete (" + (Date.now() - start) + "ms)");
     } catch (err: any) { this.errors.push("[ScriptEngine] Fatal: " + err.message); }
     return { success: this.errors.length === 0, log: this.log, errors: this.errors, clipIds: Array.from(this.clipIdMap.values()).length > 0 ? Array.from(this.clipIdMap.values()) : useEditorStore.getState().clips.map(c => c.id), duration: Date.now() - start };
@@ -474,6 +501,23 @@ export class ScriptEngine {
                 });
                 useEditorStore.getState().dispatch(new AddClipCommand(ttsClip, false));
                 this.log.push("[A3-TTS] Placed narration @ frame " + sceneStartFrame + " (" + ttsDur.toFixed(1) + "s)");
+
+                // Collect subtitle segment for ASS generation
+                const endFrame = sceneStartFrame + ttsFrames;
+                const words = narrText.split(/\s+/).filter((w: string) => w.length > 0);
+                const wordDurMs = (ttsDur * 1000) / Math.max(1, words.length);
+                const subtitleWords = words.map((w: string, idx: number) => ({
+                  word: w,
+                  startMs: Math.round(idx * wordDurMs),
+                  endMs: Math.round((idx + 1) * wordDurMs),
+                }));
+                ((this as any)._subtitleSegments || []).push({
+                  text: narrText,
+                  startFrame: sceneStartFrame,
+                  endFrame: endFrame,
+                  words: subtitleWords,
+                });
+                this.log.push("[Subtitle] Segment added: frame " + sceneStartFrame + "-" + endFrame + " (" + words.length + " words)");
 
                 // 6. Shift subsequent clips if video was extended
                 const finalDurFrames = myScriptClip ? myScriptClip.durationFrames : videoDurFrames;
