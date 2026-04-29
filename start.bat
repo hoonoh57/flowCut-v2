@@ -20,8 +20,6 @@ cd /d E:\2026\flowCut
 echo.
 echo  [1/5] Cleaning up old processes...
 taskkill /f /fi "WINDOWTITLE eq FlowCut-*" >nul 2>&1
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3456.*LISTENING" 2^>nul') do taskkill /f /pid %%a >nul 2>&1
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173.*LISTENING" 2^>nul') do taskkill /f /pid %%a >nul 2>&1
 timeout /t 1 /nobreak >nul
 echo        Done.
 
@@ -30,7 +28,6 @@ where node >nul 2>&1 || (echo        [FAIL] Node.js not found! & pause & exit /b
 for /f "tokens=*" %%i in ('node -v') do echo        Node.js %%i
 if not exist "E:\ffmpeg\bin\ffmpeg.exe" (echo        [FAIL] FFmpeg missing! & pause & exit /b 1)
 echo        FFmpeg OK
-echo        server.cjs OK
 if not exist "node_modules" (call npm install)
 if not exist "media_cache" mkdir media_cache
 if not exist "output" mkdir output
@@ -50,22 +47,21 @@ if !errorlevel! equ 0 (
     echo        Ollama started.
 )
 :skip_ollama
-if "!mode!"=="1" goto skip_comfy
 
+if "!mode!"=="1" goto skip_comfy
 echo        Checking ComfyUI...
-set "COMFY_DIR=E:\WuxiaStudio\engine\ComfyUI\ComfyUI"
-if not exist "!COMFY_DIR!\main.py" (
-    echo        [WARN] ComfyUI not found at !COMFY_DIR!
-    goto skip_comfy
-)
 netstat -ano 2>nul | findstr ":8188.*LISTENING" >nul 2>&1
 if !errorlevel! equ 0 (
     echo        ComfyUI already running on port 8188.
 ) else (
-    echo        Starting ComfyUI...
-    start "FlowCut-ComfyUI" /min cmd /k "title FlowCut-ComfyUI && color 06 && cd /d !COMFY_DIR! && python main.py --listen 0.0.0.0 --port 8188"
-    echo        ComfyUI starting... (30-60s to load models)
-    timeout /t 5 /nobreak >nul
+    if exist "E:\WuxiaStudio\engine\ComfyUI\run_nvidia_gpu.bat" (
+        echo        Starting ComfyUI via run_nvidia_gpu.bat...
+        start "FlowCut-ComfyUI" /min cmd /k "title FlowCut-ComfyUI && color 06 && cd /d E:\WuxiaStudio\engine\ComfyUI && run_nvidia_gpu.bat"
+        echo        ComfyUI starting... (30-60s to load models)
+        timeout /t 10 /nobreak >nul
+    ) else (
+        echo        [WARN] ComfyUI not found
+    )
 )
 :skip_comfy
 if "!mode!"=="1" echo        AI services skipped.
@@ -94,10 +90,8 @@ echo    Frontend:  http://localhost:5173
 if "!mode!"=="2" echo    Ollama:    http://localhost:11434
 if not "!mode!"=="1" echo    ComfyUI:   http://localhost:8188
 echo  ------------------------------------------
-echo    restart.bat = server code change
-echo    stop.bat    = shutdown everything
+echo    restart.bat = code reload (server+vite)
+echo    stop.bat    = kill everything
 echo  ==========================================
 echo.
-echo  Press any key to close this window.
-echo  Servers keep running in background.
-pause >nul
+pause
