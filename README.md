@@ -95,4 +95,8 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full improvement plan.
 
 ## License
 
-All Rights Reserved
+**All Rights Reserved** - Copyright (c) 2025-2026 hoonoh57
+
+This repository is public for viewing and reference purposes only.
+No permission is granted to use, copy, modify, or distribute this software.
+See [LICENSE](LICENSE) for full terms.

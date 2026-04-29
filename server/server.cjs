@@ -292,8 +292,63 @@ app.post('/api/subtitle/generate', (req, res) => {
     ass += '\n[Events]\n';
     ass += 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 
-    // === EVENTS ===
+    // === AUTO-CHUNKING: 1 line per screen, max 15 chars ===
+    const maxCharsPerLine = 15;
+    const chunkedSegments = [];
     for (const seg of segments) {
+      const fullText = seg.text || (seg.words ? seg.words.map(w => w.text).join(" ") : "");
+      if (fullText.length <= maxCharsPerLine) {
+        chunkedSegments.push(seg);
+      } else if (seg.words && seg.words.length > 0) {
+        // Split into chunks of ~maxCharsPerLine
+        let currentChunk = [];
+        let currentLen = 0;
+        const chunks = [];
+        for (const word of seg.words) {
+          const wLen = (word.text || "").length;
+          if (currentLen + wLen > maxCharsPerLine && currentChunk.length > 0) {
+            chunks.push([...currentChunk]);
+            currentChunk = [];
+            currentLen = 0;
+          }
+          currentChunk.push(word);
+          currentLen += wLen + 1;
+        }
+        if (currentChunk.length > 0) chunks.push(currentChunk);
+        // Create timed sub-segments
+        const totalDurSec = (seg.endFrame - seg.startFrame) / fps;
+        const totalWords = seg.words.length;
+        let wordOffset = 0;
+        for (const chunk of chunks) {
+          const startRatio = wordOffset / totalWords;
+          const endRatio = (wordOffset + chunk.length) / totalWords;
+          const chunkStartFrame = Math.round(seg.startFrame + startRatio * (seg.endFrame - seg.startFrame));
+          const chunkEndFrame = Math.round(seg.startFrame + endRatio * (seg.endFrame - seg.startFrame));
+          // Recalculate word durations within this chunk
+          const chunkDurSec = (chunkEndFrame - chunkStartFrame) / fps;
+          const perWordDur = chunkDurSec / chunk.length;
+          const newWords = chunk.map((w, i) => ({
+            text: w.text,
+            duration: perWordDur,
+            startMs: Math.round(i * perWordDur * 1000),
+            endMs: Math.round((i + 1) * perWordDur * 1000),
+          }));
+          chunkedSegments.push({
+            text: chunk.map(w => w.text).join(" "),
+            startFrame: chunkStartFrame,
+            endFrame: chunkEndFrame,
+            words: newWords,
+          });
+          wordOffset += chunk.length;
+        }
+        console.log("[Subtitle] Chunked: " + fullText.length + " chars -> " + chunks.length + " chunks");
+      } else {
+        chunkedSegments.push(seg);
+      }
+    }
+
+    // === EVENTS ===
+    for (const seg of chunkedSegments) {
       const startSec = seg.startFrame / fps;
       const endSec = seg.endFrame / fps;
       const startTime = formatASSTime(startSec);

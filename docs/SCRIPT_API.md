@@ -127,10 +127,10 @@ FlowCut의 모든 기능은 FlowScript JSON을 통해 스크립트로 실행 가
 
 | Method | Endpoint | 설명 | 우선순위 |
 |--------|----------|------|----------|
-| POST | `/api/tts/generate` | TTS 음성 생성 | P1 |
-| POST | `/api/bgm/generate` | AI BGM 생성 | P1 |
+| POST | `/api/tts/generate` | TTS 음성 생성 | Done |
+| POST | `/api/bgm/generate` | AI BGM 생성 | Done |
 | POST | `/api/comfyui/upscale` | 업스케일 | P1 |
-| POST | `/api/subtitle/generate` | STT 자막 생성 | P1 |
+| POST | `/api/subtitle/generate` | ASS 자막 생성 (8 presets) | Done |
 | POST | `/api/project/save` | 서버사이드 저장 | P2 |
 | POST | `/api/project/load` | 서버사이드 로드 | P2 |
 
@@ -182,3 +182,13 @@ borderColor, borderWidth, shadowColor, shadowX, shadowY, lineHeight
   { "action": "export", "format": "mp4", "fileName": "video_ko" }
 ]}
 ```
+### 추가 구현 완료 (이번 세션)
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| POST | /api/video/extend | 비디오 확장 (slowmotion/freeze/hybrid/loop) |
+| POST | /api/tts/generate | Edge TTS 음성 생성 (12 보이스 프리셋) |
+| GET | /api/tts/voices | TTS 보이스 목록 |
+| POST | /api/bgm/generate | AI BGM 생성 (ACE-Step/Stability Audio) |
+| POST | /api/subtitle/generate | ASS 자막 생성 (8 프리셋, 카라오케) |
+| POST | /api/extract-last-frame | 비디오 마지막 프레임 추출 (체이닝용) |

@@ -123,6 +123,13 @@
 | Phase 3.4.1 | 2026-04 | Project load video auto-detection fix |
 | Phase 3.5 | 2026-04 | P0: Script API 100%, TTS audio, I2V 81 frames, upscale endpoint |
 | Phase 3.6 | 2026-04 | P1: Crossfade transitions, timeline thumbnails, dynamic I2V dims, preview seek sync |
+| Phase A1 | 2026-04 | IPAdapter character consistency (dual safety: seed + face ref) |
+| Phase A2 | 2026-04 | AI upscale 4x-UltraSharp + frame interpolation 16->30fps |
+| Phase A3 | 2026-04 | TTS narration-first system (12 voices, auto video extension) |
+| Phase B1 | 2026-04 | Infinite video chaining (last frame extraction + continuation) |
+| Phase B3 | 2026-04 | Volume ducking + BGM auto-placement (ACE-Step/Stability Audio) |
+| Phase Sub | 2026-04 | Subtitle system: 8 presets, karaoke modes, ASS burn-in, word animation |
+| Phase Dev | 2026-04 | Dev automation: start.bat/stop.bat/restart.bat, mode selection |
 
 
 ---
