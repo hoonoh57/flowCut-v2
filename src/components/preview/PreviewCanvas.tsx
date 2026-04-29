@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { UpdateClipCommand } from '../../stores/commands/UpdateClipCommand';
 import { getVisibleClips } from '../../engines/RenderEngine';
@@ -9,6 +9,7 @@ import { getClipPreviewUrl } from '../../utils/mediaResolver';
 import { getEnvelopeVolume } from '../../types/clip';
 import { renderTextClip } from '../../renderer/textRenderer';
 import type { FitMode, AspectPreset } from '../../stores/slices/playbackSlice';
+import { SubtitleOverlay } from '../subtitle/SubtitleOverlay';
 
 type GuideMode = 'off' | 'safe' | 'grid' | 'center' | 'all';
 const GUIDE_MODES: GuideMode[] = ['off', 'safe', 'grid', 'center', 'all'];
@@ -359,6 +360,7 @@ export const PreviewCanvas: React.FC = () => {
             })}
           </div>
           <GuideOverlay mode={guideMode} />
+          <SubtitleOverlay scale={scale} displayW={displayW} displayH={displayH} />
           {selectedClipIds.map(sid => {
             if (!visibleIds.has(sid)) return null;
             const sc = clips.find(c => c.id === sid);

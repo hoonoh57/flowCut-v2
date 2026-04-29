@@ -25,6 +25,7 @@ import {
   type GeneratedAsset,
 } from '../../presets/aiCreativeDirector';
 import type { MediaItem } from '../../stores/slices/mediaSlice';
+import { SubtitlePresetPanel } from '../subtitle/SubtitlePresetPanel';
 
 export const TextPanel: React.FC = () => {
   const dispatch = useEditorStore((s) => s.dispatch);
@@ -302,6 +303,10 @@ export const TextPanel: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
+      {/* === Subtitle Section === */}
+      <SubtitlePresetPanel />
+
+      {/* === Text Presets === */}
       {/* Custom text input */}
       <div style={{ display: 'flex', gap: 4 }}>
         <input value={customText} onChange={(e) => setCustomText(e.target.value)}
