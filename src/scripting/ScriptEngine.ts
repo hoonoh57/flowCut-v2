@@ -507,7 +507,8 @@ export class ScriptEngine {
                 const words = narrText.split(/\s+/).filter((w: string) => w.length > 0);
                 const wordDurMs = (ttsDur * 1000) / Math.max(1, words.length);
                 const subtitleWords = words.map((w: string, idx: number) => ({
-                  word: w,
+                  text: w,
+                  duration: wordDurMs / 1000,
                   startMs: Math.round(idx * wordDurMs),
                   endMs: Math.round((idx + 1) * wordDurMs),
                 }));

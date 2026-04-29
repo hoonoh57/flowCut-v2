@@ -384,14 +384,8 @@ app.post('/api/subtitle/generate', (req, res) => {
     console.log('[Subtitle] Error:', err.message);
     res.json({ success: false, error: err.message });
   }
-}));
+});
 
-function formatASSTime(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return h + ':' + String(m).padStart(2, '0') + ':' + s.toFixed(2).padStart(5, '0');
-}
 // ========== VIDEO EXTEND API ==========
 app.post('/api/video/extend', async (req, res) => {
   const { videoPath, targetDurationSec, strategy, shortfallSec } = req.body;
@@ -510,6 +504,12 @@ app.post('/api/video/extend', async (req, res) => {
     const stats = fs.statSync(outputPath);
     const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
     console.log('[VideoExtend] Output:', outputPath, '(' + sizeMB + 'MB)');
+    // Validate output - if too small, file is corrupted
+    if (stats.size < 10000) {
+      console.log('[VideoExtend] WARNING: Output too small (' + stats.size + ' bytes), file corrupted. Using original.');
+      fs.unlinkSync(outputPath);
+      return res.json({ success: false, error: 'VideoExtend output corrupted (too small)', fallbackPath: videoLocalPath });
+    }
     console.log('[VideoExtend] Strategy:', selectedStrategy, '| ' + origDuration.toFixed(1) + 's -> ' + targetDurationSec.toFixed(1) + 's');
 
     res.json({
@@ -544,7 +544,7 @@ app.post('/api/export', async (req, res) => {
   sendProgress({ status: 'starting', message: 'Export starting...' });
 
   try {
-    const visualClips = inputFiles
+    let visualClips = inputFiles
       .filter(f => {
         if (!((f.type === 'video' || f.type === 'image') && f.localPath && fs.existsSync(f.localPath))) return false;
         // Convert animated WEBP to MP4 for FFmpeg compatibility
@@ -634,6 +634,14 @@ app.post('/api/export', async (req, res) => {
 
     args.push('-f', 'lavfi', '-i', 'color=c=black:s=' + ow + 'x' + oh + ':d=' + totalDurSec + ':r=' + fps);
     const baseIdx = inputIdx++;
+
+    // Pre-validate visual clips: remove corrupted/empty files
+    visualClips = visualClips.filter(clip => {
+      if (!clip.localPath || !fs.existsSync(clip.localPath)) { console.log('[EXPORT] Skipping missing file:', clip.localPath); return false; }
+      const fstat = fs.statSync(clip.localPath);
+      if (fstat.size < 10000) { console.log('[EXPORT] WARNING: Skipping corrupted file (' + fstat.size + ' bytes):', clip.localPath); return false; }
+      return true;
+    });
 
     for (const clip of visualClips) {
       if (clip.type === 'image') {
@@ -1029,7 +1037,7 @@ app.post('/api/export', async (req, res) => {
     return res.json({ success: true, filePath: outputPath, sizeMB: parseFloat(sizeMB), resolution: ow + 'x' + oh });
 
   } catch (err) {
-    console.log('  Export error:', err.message);
+    console.log('  Export error:', err.message + ' at ' + (err.stack || '').split('\\n')[1]);
     sendProgress({ status: 'error', message: err.message });
     return res.json({ success: false, error: err.message });
   }
